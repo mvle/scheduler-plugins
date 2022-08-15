@@ -62,21 +62,21 @@ A security-aware scheduler scoring plugin (SySched) scores a node for an incomin
 
 ## Design Details: Overall architecture
 
-SySched utilizes system call profiles of pods obtained through their security contexts in the form of seccomp profiles. It computes a score for each feasible node by comparing the system call profile of the pod with the system call profiles of the existing pods in the node. Our plugin keeps track of the placements of pods and their system call profiles using a lightweight in-memory cache to reduce the cost of querying the API server. To compute the scores, the plugin uses the ExS metric. We define the ExS metric to capture the system calls that a pod does not need, but are present in the node. Our plugin then returns the computed normalized ExS scores to be combined with other scores in Kubernetes for ranking candidate nodes. If a pod has no seccomp profile associated with it, then our plugin effectively is a no-op. The following figure shows the integration of our plugin with the Kubernetes scheduler.
+SySched utilizes system call profiles of pods obtained through their security contexts in the form of seccomp profiles. It computes a score for each feasible node by comparing the system call profile of the pod with the system call profiles of the existing pods in the node. Our plugin keeps track of the placements of pods and their system call profiles using a lightweight in-memory cache to reduce the cost of querying the API server. To compute the scores, the plugin uses the ExS metric. We define the ExS metric to capture the system calls that a pod does not need, but are present in the node. Our plugin then returns the computed normalized ExS scores to be combined with other scores in Kubernetes for ranking candidate nodes. If a pod has no seccomp profile associated with it, then our plugin effectively is a no-op. Figure 1 shows the integration of our plugin with the Kubernetes scheduler.
 
 <p align="center">
 <img src="images/arch.png" style="width:70%">
 </p>
 
 <p align="center">
-<b>Figure 3: Overall architecture</b>
+<b>Figure 1: Overall architecture</b>
 </p>
 
 ### Scheduling Metrics - Extraneous System Call (ExS)
 
 At the heart of SySched is a single-valued score used to quantify the extraneous system call exposure of a pod on a node. Informally, ExS captures the additional system calls accessible on a node that the pod itself does not use. This score reflects the potential “danger” a pod must face when running on the target node as vulnerabilities in these extraneous system calls from neighboring pods can jeopardize its own security. 
 
-For illustrative purpose, we consider a hypothetical node capable of executing nine system calls numbered from 1 to 9 in Figure 4. If we have three pods $P_1$, $P_2$, and $P_3$ in the node with their system call profiles $S_1 = \{1, 2, 3, 5\}$, $S_2 = \{4, 7, 8\}$, and $S_3 = \{1, 3, 5, 9\}$ respectively, we can obtain the ExS for pod $P_1$, $P_2$, and $P_3$ as follows.
+For illustrative purpose, we consider a hypothetical node capable of executing nine system calls numbered from 1 to 9 in Figure 2. If we have three pods $P_1$, $P_2$, and $P_3$ in the node with their system call profiles $S_1 = \{1, 2, 3, 5\}$, $S_2 = \{4, 7, 8\}$, and $S_3 = \{1, 3, 5, 9\}$ respectively, we can obtain the ExS for pod $P_1$, $P_2$, and $P_3$ as follows.
 
 > ExS for $P_2 = (S_1 \cup S_2 \cup S_3) - S_1 = \{1, 2, 3, 4, 5, 7, 8, 9\} - \{1, 2, 3, 5\} = \{4, 7, 8, 9\}$
 
@@ -90,7 +90,7 @@ For illustrative purpose, we consider a hypothetical node capable of executing n
 </p>
 
 <p align="center">
-<b>Figure 4: Example ExS score calculation</b>
+<b>Figure 2: Example ExS score calculation</b>
 </p>
 
 To express the computation of the ExS score as mathematical equations, let assume that all system calls in a node are numbered as $1, ..., M$. Let $\bm{S}_i^n$ represent the binary vector of enabled system calls for pod $i$ on node $n$: $\bm{S}_i^n = [s_1, s_2, ..., s_M]$, where $s_k = 1$ when the $k$-th system call is enabled, and $s_k = 0$ otherwise. Practically, $\bm{S}_i^n$ mirrors a typical **seccomp** policy for the corresponding pod.
@@ -203,26 +203,26 @@ func NewForConfig(c *rest.Config) (*SPOV1Alpha1Client, error) {
 Administrator deploys the scheduler with the SySched scoring plugin enabled. Users may deploy their pod as usual. As pods are scheduled, the pods are automatically placed according to the pod's specified constraints and our security metric discussed above.
 
 
-Figure 1 illustrates how our scoring algorithm works and how pods are placed. The figure shows the placement of three pods ($P_1$, $P_2$, and $P_3$) in  two nodes (Node 1 and Node 2). The numbers inside a pod indicate the system call profile of the pod, i.e., the profile for $P_1$ is $\{1, 2, 3, 5\}$, $P_2$ is $\{4, 7, 8\}$, and $P_3$ is $\{1, 3, 5, 9\}$. 
+Figure 3 illustrates how our scoring impacts placement decisions. To make the illustration simple, we consider two feasible nodes (Node 1 and Node 2) and the ExS score as the sole factor for ranking the feasible nodes. However, in reality, our normalized ExS scores (i.e., reversed scores by subtracting them from maxPriority) are combined with the default Kubernetes scores and then the combined scores are used to rank feasible nodes. The figure shows the placement of three pods ($P_1$, $P_2$, and $P_3$) in Node 1 and Node 2. The numbers inside a pod indicate the system call profile of the pod, i.e., the profile for $P_1$ is $\{1, 2, 3, 5\}$, $P_2$ is $\{4, 7, 8\}$, and $P_3$ is $\{1, 3, 5, 9\}$. 
 
-Initially, to schedule pod $P_1$, the ExS  scores for both Node 1 and Node 2 are the same (i.e., 0), since there are no pods running on the nodes (Figure 1(a)). Thus, our algorithm randomly picks one of the two nodes, Node 1 in this case, and updates Node 1's system call usage list using $P_1$'s system call profile (Figure 1(b)). When pod $P_2$ arrives to be scheduled, our plugin computes the ExS scores 7 and 0 for $P_2$ w.r.t. Node 1 and Node 2, respectively (Figure 1(b)). In this case, the scheduling algorithm picks Node 2 since Node 2 has a lower ExS  score. Figure 1(c) shows the updated system call lists for Node 2. This process repeats for all incoming pods. After all pods are placed, the cluster-wide ExS score in this example is 12, i.e., $ExS_1$ is 5 and $ExS_2$ is 7, where 1 and 2 are node numbers.
+Initially, to schedule pod $P_1$, the ExS  scores for both Node 1 and Node 2 are the same (i.e., 0), since there are no pods running on the nodes (Figure 3(a)). Thus, we randomly pick one of the two nodes, Node 1 in this case, and updates Node 1's system call usage list using $P_1$'s system call profile (Figure 3(b)). When pod $P_2$ arrives to be scheduled, our plugin computes the ExS scores 7 and 0 for $P_2$ w.r.t. Node 1 and Node 2, respectively (Figure 3(b)). In this case, the plugins ranked Node 2 over Node 1 since Node 2 has a lower ExS  score (i.e., higher normalized score). Figure 3(c) shows the updated system call lists for Node 2. This process repeats for all incoming pods. After all pods are placed, the cluster-wide ExS score in this example is 12, i.e., $ExS_1$ is 5 and $ExS_2$ is 7, where 1 and 2 are node numbers.
 
 <p align="center">
 <img src="images/example_complete.png" style="width:80%">
 </p>
 
 <p align = "center">
-<b>Figure 1. Scheduling algorithm and pod placement example</b>
+<b>Figure 3. Scheduling algorithm and pod placement example</b>
 </p>
 
-Figure 2 highlights the opportunities not only for reducing the exposure to extraneous system calls (i.e., ExS score) but also the node’s attack surface. Imagine an OS with nine total system calls. On such a system, both nodes in Figure 2(a) would require providing access to 89% of system calls for a non-syscall-aware scheduler such as Kubernetes default scheduler. This is in contrast to the placement outcome when our syscall-aware scheduler is used (Figure 2(b)). In that scenario, Node 1 and Node 2 only require maintaining access to 56% and 67% of system calls, respectively.
+Figure 4 highlights the opportunities not only for reducing the exposure to extraneous system calls (i.e., ExS score) but also the node’s attack surface. Imagine an OS with nine total system calls. On such a system, both nodes in Figure 4(a) would require providing access to 89% of system calls for a non-syscall-aware scheduler such as Kubernetes default scheduler. This is in contrast to the placement outcome when our syscall-aware scheduler is used (Figure 4(b)). In that scenario, Node 1 and Node 2 only require maintaining access to 56% and 67% of system calls, respectively.
 
 <p align="center">
 <img src="images/sched4sec_attacksrf.png" style="width:50%">
 </p>
 
 <p align="center">
-<b>Figure 2: Syscall-aware scheduling reduces host attack surfaces</b>
+<b>Figure 4: Syscall-aware scheduling reduces host attack surfaces</b>
 </p>
 
 
