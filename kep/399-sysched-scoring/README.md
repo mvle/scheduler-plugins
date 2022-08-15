@@ -97,7 +97,7 @@ To express the computation of the ExS score as mathematical equations, let assum
 
 To find the systems calls that are enabled a given node $n$, we perform a logical $or$ (union) of the enabled system calls across all pods within that node:  $$S^n = \bigcup_i S_i^n$$ 
 
-We can now compute the vector, $E_i^n = [e_1^n, e_2^n, ..., e_M^n]$, which represents the extraneous systems calls for pod $i$ on node $n$: $$ E_i^n = S_i^n \oplus S^n$$
+We can now compute the vector, $E_i^n = [e_1^n, e_2^n, ..., e_M^n]$, which represents the extraneous systems calls for pod $i$ on node $n$: $$E_i^n = S_i^n \oplus S^n$$
 
 
 
