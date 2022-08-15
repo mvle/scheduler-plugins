@@ -93,11 +93,11 @@ For illustrative purpose, we consider a hypothetical node capable of executing n
 <b>Figure 2: Example ExS score calculation</b>
 </p>
 
-To express the computation of the ExS score as mathematical equations, let assume that all system calls in a node are numbered as $1, ..., M$. Let $\bm{S}_i^n$ represent the binary vector of enabled system calls for pod $i$ on node $n$: $\bm{S}_i^n = [s_1, s_2, ..., s_M]$, where $s_k = 1$ when the $k$-th system call is enabled, and $s_k = 0$ otherwise. Practically, $\bm{S}_i^n$ mirrors a typical **seccomp** policy for the corresponding pod.
+To express the computation of the ExS score as mathematical equations, let assume that all system calls in a node are numbered as $1, ..., M$. Let $S_i^n$ represent the binary vector of enabled system calls for pod $i$ on node $n$: $S_i^n = [s_1, s_2, ..., s_M]$, where $s_k = 1$ when the $k$-th system call is enabled, and $s_k = 0$ otherwise. Practically, $S_i^n$ mirrors a typical **seccomp** policy for the corresponding pod.
 
-To find the systems calls that are enabled a given node $n$, we perform a logical $or$ (union) of the enabled system calls across all pods within that node:  $$\bm{S}^n = \bigcup_i \bm{S}_i^n$$ 
+To find the systems calls that are enabled a given node $n$, we perform a logical $or$ (union) of the enabled system calls across all pods within that node:  $$S^n = \bigcup_i S_i^n$$ 
 
-We can now compute the vector, $\bm{E}_i^n = [e_1^n, e_2^n, ..., e_M^n]$, which represents the extraneous systems calls for pod $i$ on node $n$: $$ \bm{E}_i^n = \bm{S}_i^n \oplus \bm{S}^n$$
+We can now compute the vector, $E_i^n = [e_1^n, e_2^n, ..., e_M^n]$, which represents the extraneous systems calls for pod $i$ on node $n$: $$ E_i^n = S_i^n \oplus S^n$$
 
 
 
