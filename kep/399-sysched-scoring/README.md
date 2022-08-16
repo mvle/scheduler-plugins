@@ -2,11 +2,11 @@
 
 ## Summary
 
-We propose the use of pod placement as a way to improve the security of nodes in a cluster. Specifically, we propose a new scheduler scoring plugin (SySched) that enables the ranking of feasible nodes based on the relative risks of pods' system call usage. Key to this risk calculation is the Extraneous System Call (ExS) metric -- a metric defined by us -- which measures the amount of excess system call a pod is exposed to on a given node. The benefits of this approach are the following:
+We propose the use of pod placement as a way to improve the security of nodes in a cluster. Specifically, we propose a new scheduler scoring plugin (SySched) that enables the ranking of feasible nodes based on the relative risks of pods' system call usage. Key to this risk calculation is the Extraneous System Call (ExS) metric &mdash; a metric defined by us &mdash; which measures the amount of excess system call a pod is exposed to on a given node. The benefits of this approach are the following:
 
-1. reduce the number of victim pods that can be impacted by a "bad" pod, where a "bad" pod has one or more vulnerable system calls to exploit its host kernel.
+1. reduce the number of victim pods that can be impacted by a "bad" pod, where a "bad" pod uses one or more system calls that are vulnerable and potentially exploitable to compromise the host kernel
 2. reduce the number of nodes in a cluster that can be impacted by a "bad" pod
-3. minimizes the "excess" system calls a pod may experience during its lifecycle, hence reduces needed system calls on a node, which in turns reduces the attack surface areas of a node.
+3. minimizes the "excess" system calls a pod may experience during its lifecycle, hence reduces needed system calls on a node, which in turns reduces the attack surface areas of a node
 
 
 ## Motivation
@@ -17,10 +17,11 @@ While pod-centric security schemes such as seccomp are necessary, they alone are
  
 ### Goals
 
-1. Use a scheduler score plugin to rank candidate nodes for an incoming pod to improve pod security.
-2. Compute ExS score for a pod w.r.t. a candidate node by comparing their system call profiles (stored as [CRDs](https://github.com/kubernetes-sigs/security-profiles-operator)) and add the normalized score to Kubernetes default scores.
+1. Develop a score plugin to favor nodes, for a given incoming pod, that have low ExS scores, i.e., nodes with pods that have similar system call profiles.
+2. Define ExS metric used by the logic in the score plugin
 
 <!---
+3. System call similarity is calculated using our proposed ExS score which is based on for a pod w.r.t. a candidate node by comparing their system call profiles (stored as [CRDs](https://github.com/kubernetes-sigs/security-profiles-operator)) and add the normalized score to Kubernetes default scores.
 2.  No impact when the scoring plugin is disabled
 3.  When scoring plugin is enabled:
 	-  Works in conjunction with other scoring plugins
@@ -44,9 +45,14 @@ While pod-centric security schemes such as seccomp are necessary, they alone are
 
 ## User Stories
 
-1. When diverse set of pods may be scheduled in a cluster, nodes of the cluster can have multiple pods using various system calls, where system calls used by one may not be used by its neighbors. Besides, one pod may have vulnerable or critical system calls that affect the security of a node as well as all the pods running on the node. SySched enables making placement decisions by examining the system call profile similarity of candidate nodes and an incoming pod.
+1. As a user of the cloud, I would like to be scheduled with neighbors who do not have, or less likely to have, the abilities to compromise my security via the shared kernel on the host.
+2. As a developer, I would like the users of my applications to be rewarded for my conscientious and judicious use of system calls by being scheduled on a node with neighboring applicaitons who are similarly limited in their system call usage, hence reducing the user's chance to being compromised by those neighbors via system call-based host exploits.
+3. As a cloud provider, we want to enable multitenancy but minimize the impact of a compromised or malicious pod on our users. Hence, we want to minimize the number of victim pods and victim nodes in a cluster from some pods exploiting system call-based host exploits.
+4. As a cloud provider, there might be certain system calls that are deemed critical based on current or historical data. In such situations, a weight can be attached to the associated system calls which would let the scheduler further isolate the pods using those critical system calls from other pods.
 
-2. Certain system calls might be deemed critical based on current or historical data. In such situations, a weight can be attached to the associated system calls which would let the scheduler further isolate the pods using those critical system calls from other pods.
+<!---
+1. When diverse set of pods may be scheduled in a cluster, nodes of the cluster can have multiple pods using various system calls, where system calls used by one may not be used by its neighbors. Besides, one pod may have vulnerable or critical system calls that affect the security of a node as well as all the pods running on the node. SySched enables making placement decisions by examining the system call profile similarity of candidate nodes and an incoming pod.
+--->
 
 ### Notes/Constraints/Caveats
 
@@ -62,7 +68,11 @@ A security-aware scheduler scoring plugin (SySched) scores a node for an incomin
 
 ## Design Details: Overall architecture
 
-SySched utilizes system call profiles of pods obtained through their security contexts in the form of seccomp profiles. It computes a score for each feasible node by comparing the system call profile of the pod with the system call profiles of the existing pods in the node. Our plugin keeps track of the placements of pods and their system call profiles using a lightweight in-memory cache to reduce the cost of querying the API server. To compute the scores, the plugin uses the ExS metric. We define the ExS metric to capture the system calls that a pod does not need, but are present in the node. Our plugin then returns the computed normalized ExS scores to be combined with other scores in Kubernetes for ranking candidate nodes. If a pod has no seccomp profile associated with it, then our plugin effectively is a no-op. Figure 1 shows the integration of our plugin with the Kubernetes scheduler.
+SySched utilizes system call profiles of pods obtained through their security contexts in the form of seccomp profiles. It computes a score for each feasible node by comparing the system call profile of the pod with the system call profiles of the existing pods in the node. Our plugin keeps track of the placements of pods and their system call profiles using a lightweight in-memory cache to reduce the cost of querying the API server. To compute the scores, the plugin uses the ExS metric. We define the ExS metric to capture the system calls that a pod does not need, but are present in the node. Our plugin then returns the computed normalized ExS scores to be combined with other scores in Kubernetes for ranking candidate nodes. Figure 1 shows the integration of our plugin with the Kubernetes scheduler.
+
+<!--
+Administrator deploys the scheduler with the SySched scoring plugin enabled. Users may deploy their pod as usual. As pods are scheduled, the pods are automatically placed according to the pod's specified constraints and our security metric discussed above.
+-->
 
 <p align="center">
 <img src="images/arch.png" style="width:70%">
@@ -99,18 +109,42 @@ To find the systems calls that are enabled a given node $n$, we perform a logica
 
 We can now compute the vector, $E_i^n = [e_1^n, e_2^n, ..., e_M^n]$, which represents the extraneous systems calls for pod $i$ on node $n$: $$E_i^n = S_i^n \oplus S^n$$
 
+### Scheduling Illustrative Example
+
+Figure 3 illustrates how our scoring impacts placement decisions. To make the illustration simple, we consider two feasible nodes (Node 1 and Node 2) and the ExS score as the sole factor for ranking the feasible nodes. However, in reality, our normalized ExS scores <!--(i.e., reversed scores by subtracting them from maxPriority) --> are combined with other plugin scores to rank feasible nodes. The figure shows the placement of three pods $(P_1$, $P_2$, and $P_3)$ in Node 1 and Node 2. The numbers inside a pod indicate the system call profile of the pod, i.e., the profile for $P_1$ is $\{1, 2, 3, 5\}$, $P_2$ is $\{4, 7, 8\}$, and $P_3$ is $\{1, 3, 5, 9\}$. 
+
+Initially, to schedule pod $P_1$, the ExS  scores for both Node 1 and Node 2 are the same (i.e., 0), since there are no pods running on the nodes (Figure 3(a)). Thus, we randomly pick one of the two nodes, Node 1 in this case, and updates Node 1's system call usage list using $P_1$'s system call profile (Figure 3(b)). When pod $P_2$ arrives to be scheduled, our plugin computes the ExS scores 7 and 0 for $P_2$ w.r.t. Node 1 and Node 2, respectively (Figure 3(b)). In this case, the plugins ranked Node 2 over Node 1 since Node 2 has a lower ExS  score (i.e., higher normalized score). Figure 3(c) shows the updated system call lists for Node 2. This process repeats for all incoming pods. After all pods are placed, the cluster-wide ExS score in this example is 12, i.e., $ExS_1$ is 5 and $ExS_2$ is 7, where 1 and 2 are node numbers.
+
+<p align="center">
+<img src="images/example_complete.png" style="width:50%">
+</p>
+
+<p align = "center">
+<b>Figure 3. Scheduling algorithm and pod placement example</b>
+</p>
+
+Figure 4 highlights the opportunities not only for reducing the exposure to extraneous system calls (i.e., ExS score) but also the node’s attack surface. Imagine an OS with nine total system calls. On such a system, both nodes in Figure 4(a) would require providing access to 89% of system calls for a non-syscall-aware scheduler such as Kubernetes default scheduler. This is in contrast to the placement outcome when our syscall-aware scheduler is used (Figure 4(b)). In that scenario, Node 1 and Node 2 only require maintaining access to 56% and 67% of system calls, respectively.
+
+<p align="center">
+<img src="images/sched4sec_attacksrf.png" style="width:50%">
+</p>
+
+<p align="center">
+<b>Figure 4: Syscall-aware scheduling reduces host attack surfaces</b>
+</p>
 
 
 ### Scheduling Plugin
 
 <!-- We developed a new plugin to implement the scoring extension API point in the Kubernetes scheduler while leaving other filters and scoring plugins intact. We leverage existing filtering and scoring operations of the Kubernetes scheduler to handle other aspects of pod placement such as spreading the pods and ensuring resource availability. -->
 
-There are two main components of our plugin: 1) a lightweight in-memory cache to synchronize with pod events for keeping an up-to-date state about what types of syscalls are present on what nodes, and 2) mechanisms for retrieving the system call sets used by pods for computing the ExS scores. The in-memory cache reduces the cost of querying the API server for each pod scheduling event. We obtain the system call profiles for pods from their seccomp profiles. Our plugin leverages the Kubernetes sigs community-developed [Security Profiles Operator](https://github.com/kubernetes-sigs/security-profiles-operator) that creates Custom Resource Definitions (CRDs) for seccomp profiles.
+There are two main components of our plugin: 1) a lightweight in-memory cache that is kept synchronize with pod events in order to keep an up-to-date node to pod mapping in the cluster, and 2) mechanisms for retrieving the system call sets used by pods for computing the ExS scores. The in-memory cache reduces the cost of querying the API server for each pod scheduling event. We obtain the system call profiles for pods from their seccomp profiles. Our plugin leverages the Kubernetes sigs community-developed [Security Profiles Operator](https://github.com/kubernetes-sigs/security-profiles-operator) that creates Custom Resource Definitions (CRDs) for seccomp profiles. If a pod has no seccomp profile associated with it, then our plugin simply returns, effectively a no-op.
 
 #### **How the Scheduler gets access to pods' system call profiles**
-We assume that the system call profiles of pods have explicitly been made available to the scheduler via the [Security Profiles Operator](https://github.com/kubernetes-sigs/security-profiles-operator) (SPO). The scheduler can use the API server to access a pod's seccomp profile via the SPO's CRD.
 
-The Kubernetes sigs community developed SPO that creates CRDs for seccomp profiles. One can manually create a seccomp profile CRD for a pod by specifying the allowed or denied system call list in the CRD's YAML file.
+We assume that the system call profiles of pods have explicitly been made available to the scheduler via the [Security Profiles Operator](https://github.com/kubernetes-sigs/security-profiles-operator) (SPO). <!--The Kubernetes sigs community developed SPO that creates CRDs for seccomp profiles. --> The scheduler uses the API server to access a pod's seccomp profile via the SPO's CRD.
+
+One can manually create a seccomp profile CRD for a pod by specifying the allowed or denied system call list in the CRD's YAML file. For example:
 
 ```
 ---
@@ -140,7 +174,7 @@ spec:
 	...
 ```
 
-Alternatively, the operator can also be used to automate generating the seccomp profile. In the end, the operator creates the CRD and provides a relative path where the actual JSON file for the CRD is stored. One can then update the pod's security context using the relative path.
+Alternatively, the operator can also be used to automate generating the seccomp profile. In the end, the operator creates the CRD and provides a relative path where the actual JSON file for the CRD is stored. One can then update the pod's security context using the relative path. The plugin parses this CRD to obtain the list of system call for a pod.
 
 ```
 NAME            STATUS      AGE   LOCALHOSTPROFILE
@@ -164,7 +198,7 @@ spec:
   image: nginx:1.16
 ```
 
-When our plugin receives an incoming pod for computing ExS scores, the plugin first reads its annotation and retrieves the annotation done by the SPO. The plugin then obtains the namespace and seccomp profile CRD name from an SPO annotation (indicated by *seccomp.security.alpha.kubernetes.io*). A pod may have multiple annotations for multiple seccomp profile CRDs in different namespaces. In this case, the plugin reads all the CRDs and merges them to obtain the system call profile. Alternatively, a pod can have the seccomp profile CRD in its security context field instead of annotations. In this case, our plugin obtains the system call profile by reading the CRD indicated in the security context field. If a pod does not have a security context field or SPO annotations, then our plugin simply returns zero (0) as the ExS score for a node. This zero (0) ExS score does not impact the Kubernetes default scoring.
+When our plugin receives an incoming pod for computing ExS scores, the plugin first reads its annotation and retrieves the annotation done by the SPO. The plugin then obtains the namespace and seccomp profile CRD name from an SPO annotation (indicated by *seccomp.security.alpha.kubernetes.io*). A pod may have multiple annotations for multiple seccomp profile CRDs in different namespaces. In this case, the plugin reads all the CRDs and merges them to obtain the system call profile. Alternatively, a pod can have the seccomp profile CRD in its security context field instead of annotations. In this case, our plugin uses the API server to obtain the system call profile by reading the CRD indicated in the security context field. If a pod does not have a security context field or SPO annotations, then our plugin simply returns zero (0) as the ExS score for a node. This zero (0) ExS score does not impact the Kubernetes default scoring.
 
 ```
 ...
@@ -198,40 +232,6 @@ func NewForConfig(c *rest.Config) (*SPOV1Alpha1Client, error) {
 ```
 
 <!-- The state store is implemented as a thread that listens to events of a pod’s lifecycle, e.g., creation, stop, destruction, run, etc. Using these event notifications, this thread tracks where pods are currently running in a cluster. When a pod stops running on a node, our plugin also removes it from its internal mapping. While the entire state of pod placement in a cluster can be retrieved dynamically by querying the API server, this can be an expensive task to do per pod scheduling event, hence we choose to maintain this state internally in our scheduler. -->
-
-
-Administrator deploys the scheduler with the SySched scoring plugin enabled. Users may deploy their pod as usual. As pods are scheduled, the pods are automatically placed according to the pod's specified constraints and our security metric discussed above.
-
-
-Figure 3 illustrates how our scoring impacts placement decisions. To make the illustration simple, we consider two feasible nodes (Node 1 and Node 2) and the ExS score as the sole factor for ranking the feasible nodes. However, in reality, our normalized ExS scores (i.e., reversed scores by subtracting them from maxPriority) are combined with the default Kubernetes scores and then the combined scores are used to rank feasible nodes. The figure shows the placement of three pods ($P_1$, $P_2$, and $P_3$) in Node 1 and Node 2. The numbers inside a pod indicate the system call profile of the pod, i.e., the profile for $P_1$ is $\{1, 2, 3, 5\}$, $P_2$ is $\{4, 7, 8\}$, and $P_3$ is $\{1, 3, 5, 9\}$. 
-
-Initially, to schedule pod $P_1$, the ExS  scores for both Node 1 and Node 2 are the same (i.e., 0), since there are no pods running on the nodes (Figure 3(a)). Thus, we randomly pick one of the two nodes, Node 1 in this case, and updates Node 1's system call usage list using $P_1$'s system call profile (Figure 3(b)). When pod $P_2$ arrives to be scheduled, our plugin computes the ExS scores 7 and 0 for $P_2$ w.r.t. Node 1 and Node 2, respectively (Figure 3(b)). In this case, the plugins ranked Node 2 over Node 1 since Node 2 has a lower ExS  score (i.e., higher normalized score). Figure 3(c) shows the updated system call lists for Node 2. This process repeats for all incoming pods. After all pods are placed, the cluster-wide ExS score in this example is 12, i.e., $ExS_1$ is 5 and $ExS_2$ is 7, where 1 and 2 are node numbers.
-
-<p align="center">
-<img src="images/example_complete.png" style="width:80%">
-</p>
-
-<p align = "center">
-<b>Figure 3. Scheduling algorithm and pod placement example</b>
-</p>
-
-Figure 4 highlights the opportunities not only for reducing the exposure to extraneous system calls (i.e., ExS score) but also the node’s attack surface. Imagine an OS with nine total system calls. On such a system, both nodes in Figure 4(a) would require providing access to 89% of system calls for a non-syscall-aware scheduler such as Kubernetes default scheduler. This is in contrast to the placement outcome when our syscall-aware scheduler is used (Figure 4(b)). In that scenario, Node 1 and Node 2 only require maintaining access to 56% and 67% of system calls, respectively.
-
-<p align="center">
-<img src="images/sched4sec_attacksrf.png" style="width:50%">
-</p>
-
-<p align="center">
-<b>Figure 4: Syscall-aware scheduling reduces host attack surfaces</b>
-</p>
-
-
-<!--#### Story 2
-
-Certain system calls might be deemed critical based on current or historical data. In such situations, a weight can be attached to the associated system calls which would let the scheduler further isolate the pods using those critical system calls from other pods.
--->
-
-
 
 ### Known limitations
 
