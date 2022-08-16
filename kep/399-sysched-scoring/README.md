@@ -123,28 +123,19 @@ Initially, to schedule pod $P_1$, the ExS  scores for both Node 1 and Node 2 are
 <b>Figure 3. Scheduling algorithm and pod placement example</b>
 </p>
 
-Figure 4 highlights the opportunities not only for reducing the exposure to extraneous system calls (i.e., ExS score) but also the node’s attack surface. Imagine an OS with nine total system calls. On such a system, both nodes in Figure 4(a) would require providing access to 89% of system calls for a non-syscall-aware scheduler such as Kubernetes default scheduler. This is in contrast to the placement outcome when our syscall-aware scheduler is used (Figure 4(b)). In that scenario, Node 1 and Node 2 only require maintaining access to 56% and 67% of system calls, respectively.
-
-<p align="center">
-<img src="images/sched4sec_attacksrf.png" style="width:50%">
-</p>
-
-<p align="center">
-<b>Figure 4: Syscall-aware scheduling reduces host attack surfaces</b>
-</p>
-
+Figure 3 also highlights the opportunities not only for reducing the exposure to extraneous system calls (i.e., ExS score) but also the node’s attack surface. If $P_3$ had been scheduled on Node 2 instead of Node 1, then Node 2 would have a total of 7 system calls "open" $(1,3,4,5,7,8,9)$, instead of only 3 system calls under the SySched approach. 
 
 ### Scheduling Plugin
 
 <!-- We developed a new plugin to implement the scoring extension API point in the Kubernetes scheduler while leaving other filters and scoring plugins intact. We leverage existing filtering and scoring operations of the Kubernetes scheduler to handle other aspects of pod placement such as spreading the pods and ensuring resource availability. -->
 
-There are two main components of our plugin: 1) a lightweight in-memory cache that is kept synchronize with pod events in order to keep an up-to-date node to pod mapping in the cluster, and 2) mechanisms for retrieving the system call sets used by pods for computing the ExS scores. The in-memory cache reduces the cost of querying the API server for each pod scheduling event. We obtain the system call profiles for pods from their seccomp profiles. Our plugin leverages the Kubernetes sigs community-developed [Security Profiles Operator](https://github.com/kubernetes-sigs/security-profiles-operator) that creates Custom Resource Definitions (CRDs) for seccomp profiles. If a pod has no seccomp profile associated with it, then our plugin simply returns, effectively a no-op.
+There are two main components of our plugin: 1) a lightweight in-memory cache that is kept synchronize with pod events in order to keep an up-to-date node to pod mapping in the cluster, and 2) mechanisms for retrieving the system call sets used by pods for computing the ExS scores. The in-memory cache reduces the cost of querying the API server for each pod scheduling event. We obtain the system call profiles for pods from their seccomp profiles. Our plugin leverages the Kubernetes sigs community-developed [Security Profiles Operator](https://github.com/kubernetes-sigs/security-profiles-operator) (SPO) that creates Custom Resource Definitions (CRDs) for seccomp profiles. If a pod has no seccomp profile associated with it, then our plugin simply returns, effectively a no-op.
 
 #### **How the Scheduler gets access to pods' system call profiles**
 
-We assume that the system call profiles of pods have explicitly been made available to the scheduler via the [Security Profiles Operator](https://github.com/kubernetes-sigs/security-profiles-operator) (SPO). <!--The Kubernetes sigs community developed SPO that creates CRDs for seccomp profiles. --> The scheduler uses the API server to access a pod's seccomp profile via the SPO's CRD.
+We assume that the system call profiles of pods have explicitly been made available to the scheduler via the SPO. We rely on the SPO to generate and bind seccomp profile CRDs to the pods. The scheduler uses the API server to access a pod's seccomp profile CRD and parses the seccomp profile CRD to obtain the list of system calls for a pod. 
 
-One can manually create a seccomp profile CRD for a pod by specifying the allowed or denied system call list in the CRD's YAML file. For example:
+An example of an SPO's seccomp profile CRD:
 
 ```
 ---
@@ -174,13 +165,23 @@ spec:
 	...
 ```
 
-Alternatively, the operator can also be used to automate generating the seccomp profile. In the end, the operator creates the CRD and provides a relative path where the actual JSON file for the CRD is stored. One can then update the pod's security context using the relative path. The plugin parses this CRD to obtain the list of system call for a pod.
+An example of pod's security context specifying the associated seccomp profile:
 
+```
+...
+    spec:
+      securityContext:
+        seccompProfile:
+          type: Localhost
+          localhostProfile: operator/scheduler-plugins/nginx-seccomp.json
+...
+```
+
+<!--
 ```
 NAME            STATUS      AGE   LOCALHOSTPROFILE
 nginx-seccomp   Installed   19h   operator/scheduler-plugins/nginx-seccomp.json
 ```
-
 
 Optionally, SPO can also automate binding the seccomp profile to one or more pods. In the following binding specification, **nginx-seccomp** seccomp profile CRD is bounded with any pods where the pods use **nginx:1.16** image in the image tag.
 
@@ -197,19 +198,11 @@ spec:
     name: nginx-seccomp
   image: nginx:1.16
 ```
+-->
 
-When our plugin receives an incoming pod for computing ExS scores, the plugin first reads its annotation and retrieves the annotation done by the SPO. The plugin then obtains the namespace and seccomp profile CRD name from an SPO annotation (indicated by *seccomp.security.alpha.kubernetes.io*). A pod may have multiple annotations for multiple seccomp profile CRDs in different namespaces. In this case, the plugin reads all the CRDs and merges them to obtain the system call profile. Alternatively, a pod can have the seccomp profile CRD in its security context field instead of annotations. In this case, our plugin uses the API server to obtain the system call profile by reading the CRD indicated in the security context field. If a pod does not have a security context field or SPO annotations, then our plugin simply returns zero (0) as the ExS score for a node. This zero (0) ExS score does not impact the Kubernetes default scoring.
+To further elaborate, when our plugin receives an incoming pod for computing ExS scores, the plugin first reads its annotation and retrieves the annotation done by the SPO. The plugin then obtains the namespace and seccomp profile CRD name from an SPO annotation (indicated by *seccomp.security.alpha.kubernetes.io*). A pod may have multiple annotations for multiple seccomp profile CRDs in different namespaces. In this case, the plugin reads all the CRDs (HOW?) and merges them to obtain the system call profile. Alternatively, a pod can have the seccomp profile CRD in its security context field instead of annotations. In this case, our plugin uses the API server to obtain the system call profile by reading the CRD indicated in the security context field. If a pod does not have a security context field or SPO annotations, then our plugin simply returns zero (0) as the ExS score for a node. This zero (0) ExS score does not impact the Kubernetes default scoring.
 
-```
-...
-    spec:
-      securityContext:
-        seccompProfile:
-          type: Localhost
-          localhostProfile: operator/scheduler-plugins/nginx-seccomp.json
-...
-```
-
+<!--
 To obtain the SPO CRDs, we implement a clientset API using the group API end point and version as follows. This clientset allows us to interact and read the SPO CRDs.
 
 ```
@@ -230,6 +223,7 @@ func NewForConfig(c *rest.Config) (*SPOV1Alpha1Client, error) {
     return &SPOV1Alpha1Client{restClient: client}, nil
 }
 ```
+-->
 
 <!-- The state store is implemented as a thread that listens to events of a pod’s lifecycle, e.g., creation, stop, destruction, run, etc. Using these event notifications, this thread tracks where pods are currently running in a cluster. When a pod stops running on a node, our plugin also removes it from its internal mapping. While the entire state of pod placement in a cluster can be retrieved dynamically by querying the API server, this can be an expensive task to do per pod scheduling event, hence we choose to maintain this state internally in our scheduler. -->
 
