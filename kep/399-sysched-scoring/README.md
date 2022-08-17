@@ -200,7 +200,54 @@ spec:
 ```
 -->
 
-To further elaborate, when our plugin receives an incoming pod for computing ExS scores, the plugin first reads its annotation and retrieves the annotation done by the SPO. The plugin then obtains the namespace and seccomp profile CRD name from an SPO annotation (indicated by *seccomp.security.alpha.kubernetes.io*). A pod may have multiple annotations for multiple seccomp profile CRDs in different namespaces. In this case, the plugin reads all the CRDs (HOW?) and merges them to obtain the system call profile. Alternatively, a pod can have the seccomp profile CRD in its security context field instead of annotations. In this case, our plugin uses the API server to obtain the system call profile by reading the CRD indicated in the security context field. If a pod does not have a security context field or SPO annotations, then our plugin simply returns zero (0) as the ExS score for a node. This zero (0) ExS score does not impact the Kubernetes default scoring.
+To further elaborate, when our plugin receives an incoming pod for computing ExS scores, the plugin first reads its annotation and retrieves the annotation done by the SPO as follows. The plugin then obtains the namespace and seccomp profile CRD name from an SPO annotation (indicated by *seccomp.security.alpha.kubernetes.io*).
+
+```
+Name:         nginx1-7768b9b59d-9vhrk
+Namespace:    default
+Priority:     0
+Node:         mynode-3/192.168.60.13
+Start Time:   Tue, 16 Aug 2022 20:33:42 -0500
+Labels:       app=nginx1
+              pod-template-hash=7768b9b59d
+Annotations:  cni.projectcalico.org/containerID: 69601d707df9b8e42813626fab8d9bbe4360c123b56d02193340b20559c91152
+              cni.projectcalico.org/podIP: 20.98.130.86/32
+              cni.projectcalico.org/podIPs: 20.98.130.86/32
+              container.seccomp.security.alpha.kubernetes.io/nginx1: localhost/operator/default/nginx-seccomp.json
+Status:       Running
+IP:           20.98.130.86
+IPs:
+  IP:           20.98.130.86
+Controlled By:  ReplicaSet/nginx1-7768b9b59d
+Containers:
+  nginx1:
+    Container ID:   docker://aca53794077445cf1a0cf6eb3e6f36db297a6a8307c36ebb9c9d37ac81839f67
+    Image:          nginx:1.16
+...
+```
+
+A pod may have multiple seccomp profile SPO annotations for multiple containers illustrated below. In this case, the plugin reads all the seccomp profile CRDs from the annotations and merges them to obtain the system call profile for the pod. Alternatively, a pod can have the seccomp profile CRD in its security context field instead of annotations. In this case, our plugin uses the API server to obtain the system call profile by reading the CRD indicated in the security context field. If a pod does not have a security context field or SPO annotations, then our plugin simply returns zero (0) as the ExS score for a node. This zero (0) ExS score does not impact the Kubernetes default scoring.
+
+```
+Name:         multi-container-pod-bdc58d9fb-l686s
+Namespace:    default
+Priority:     0
+Node:         mynode-2/192.168.60.12
+Start Time:   Tue, 16 Aug 2022 23:14:52 -0500
+Labels:       app=multi-container-pod
+              pod-template-hash=bdc58d9fb
+Annotations:  cni.projectcalico.org/containerID: 7d20550c2130035c2e5e67f1abd0ea9d7a370ca9bdb265880651a2295e6ccd4c
+              cni.projectcalico.org/podIP: 20.96.25.165/32
+              cni.projectcalico.org/podIPs: 20.96.25.165/32
+              container.seccomp.security.alpha.kubernetes.io/nginx: localhost/operator/default/nginx-seccomp.json
+              container.seccomp.security.alpha.kubernetes.io/proftpd: localhost/operator/default/proftpd-seccomp.json
+Status:       Running
+IP:           20.96.25.165
+IPs:
+  IP:           20.96.25.165
+Controlled By:  ReplicaSet/multi-container-pod-bdc58d9fb
+...
+```
 
 <!--
 To obtain the SPO CRDs, we implement a clientset API using the group API end point and version as follows. This clientset allows us to interact and read the SPO CRDs.
