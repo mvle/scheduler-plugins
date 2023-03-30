@@ -44,8 +44,7 @@ $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/security-pr
 
 ### Scheduler configuration
 
-The `SySched` plugin has its own specific parameters. Following is an example (`examples/sched-cc.yaml`) scheduler configuration
-for `SySched`.
+The `SySched` plugin has its own specific parameters. Following is an example (`manifests/sysched/examples/scheduler-config.yaml`) scheduler configuration for `SySched`.
 
 ```
 apiVersion: kubescheduler.config.k8s.io/v1beta3
@@ -78,9 +77,9 @@ of `redis` containers (i.e., pods) using the `default-scheduler`.
 $ kubectl get nodes
 
 NAME          STATUS   ROLES           AGE   VERSION
-k8s-master2   Ready    control-plane   17d   v1.24.9
-mynode-1      Ready    <none>          15d   v1.24.9
-mynode-2      Ready    <none>          15d   v1.24.9
+k8s-master2   Ready    control-plane   17d   v1.25.7
+mynode-1      Ready    <none>          15d   v1.25.7
+mynode-2      Ready    <none>          15d   v1.25.7
 ```
 
 To deploy these pods using the `default-scheduler` with the `SySched` plugin enabled, we need to provide the
@@ -92,11 +91,10 @@ the deployment yaml for `nginx`:
 #### Step 1: Creating seccomp profile CRD using SPO
 
 The following yaml file shows an example seccomp profile CRD specification for `nginx` using SPO. The system call list
-is truncated in the CRD. The complete CRD is available in the
-[examples](https://github.com/mvle/scheduler-plugins/tree/sysched/pkg/sysched/examples) directory.
+is truncated in the CRD. The complete CRD is available in the `manifests/sysched/examples` directory.
 
 ``` 
-$ cat examples/nginx.profile.yaml
+$ cat manifests/sysched/examples/nginx.profile.yaml
 
 ---
 apiVersion: security-profiles-operator.x-k8s.io/v1beta1
@@ -120,9 +118,9 @@ spec:
 ```
 Following commands create the seccomp profile CRDs for `nginx`, `memcached`, and `redis`.
 ```
-kubectl apply -f examples/nginx.profile.yaml
-kubectl apply -f examples/memcached.profile.yaml
-kubectl apply -f examples/redis.profile.yaml
+kubectl apply -f manifests/sysched/examples/nginx.profile.yaml
+kubectl apply -f manifests/sysched/examples/memcached.profile.yaml
+kubectl apply -f manifests/sysched/examples/redis.profile.yaml
 ```
 
 SySched also requires a full and unconfined system call profile for the pods that do
@@ -132,7 +130,7 @@ can also be set through the plugin configuration in the scheduler configuration 
 To create the full system call profile, issue the following command.
 
 ```
-kubectl apply -f examples/full.profile.yaml
+kubectl apply -f manifests/sysched/examples/full.profile.yaml
 ```
 
 
@@ -156,7 +154,7 @@ container image tag `nginx:1.16`.
 
 
 ```
-$ cat examples/nginx.binding.yaml
+$ cat manifests/sysched/examples/nginx.binding.yaml
 
 ---
 apiVersion: security-profiles-operator.x-k8s.io/v1alpha1
@@ -179,9 +177,9 @@ Following commands create the binding CRDs for `nginx`, `memcached`, and `redis`
 profile CRDs.
 
 ```
-kubectl apply -f examples/nginx.binding.yaml
-kubectl apply -f examples/memcached.binding.yaml
-kubectl apply -f examples/redis.binding.yaml
+kubectl apply -f manifests/sysched/examples/nginx.binding.yaml
+kubectl apply -f manifests/sysched/examples/memcached.binding.yaml
+kubectl apply -f manifests/sysched/examples/redis.binding.yaml
 ```
 
 To see the created profile binding CRDs, please issue the following command: `kubectl get profilebindings`.
@@ -200,7 +198,7 @@ yaml for `nginx` where the scheduler the `default-scheduler` with `SySched` plug
 field in the specification.
 
 ```
-$ cat examples/nginx1.yaml
+$ cat manifests/sysched/examples/nginx1.yaml
 
 apiVersion: apps/v1
 kind: Deployment
@@ -241,10 +239,10 @@ The following commands create the deployments for two instance of `nginx`, one i
 instance of `redis`. Please note that the order of the pod deployment may result different placement of pods.
 
 ```
-kubectl apply -f examples/nginx1.yaml
-kubectl apply -f examples/redis1.yaml
-kubectl apply -f examples/nginx2.yaml
-kubectl apply -f examples/memcached1.yaml
+kubectl apply -f manifests/sysched/examples/nginx1.yaml
+kubectl apply -f manifests/sysched/examples/redis1.yaml
+kubectl apply -f manifests/sysched/examples/nginx2.yaml
+kubectl apply -f manifests/sysched/examples/memcached1.yaml
 ```
 
 To see the placement result, please issue the following command: `kubectl get pods -o wide`
