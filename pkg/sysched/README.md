@@ -236,7 +236,7 @@ spec:
 ```
 
 The following commands create the deployments for two instance of `nginx`, one instance of `memcached`, and one
-instance of `redis`. Please note that the order of the pod deployment may result different placement of pods.
+instance of `redis`. Please note that the order of the pod deployment may result in different placement of pods.
 
 ```
 kubectl apply -f manifests/sysched/examples/nginx1.yaml
