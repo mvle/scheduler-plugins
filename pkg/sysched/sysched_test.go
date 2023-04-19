@@ -19,6 +19,7 @@ import (
 	"sigs.k8s.io/security-profiles-operator/api/seccompprofile/v1beta1"
         "k8s.io/apimachinery/pkg/runtime/schema"
         "k8s.io/client-go/kubernetes/scheme"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1alpha1 "sigs.k8s.io/scheduler-plugins/pkg/sysched/clientset/v1alpha1"
 	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/queuesort"
 	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/defaultbinder"
@@ -28,41 +29,46 @@ import (
 )
 
 var (
-	spoResponse = map[string]interface{}{
-	        "apiVersion": "security-profiles-operator.x-k8s.io/v1beta1",
-	        "kind": "SeccompProfile",
-	        "metadata": map[string]interface{} {
-	                "annotations": map[string]interface{}{},
-	                "name": "z-seccomp",
-	                "namespace": "default",
+	spoResponse = v1beta1.SeccompProfile {
+	        TypeMeta: metav1.TypeMeta{
+			APIVersion: "security-profiles-operator.x-k8s.io/v1beta1",
+                        Kind: "SeccompProfile",
 	        },
-	        "spec": map[string]interface{} {
-	                "architectures": []string {"SCMP_ARCH_X86_64"},
-	                "defaultAction": "SCMP_ACT_LOG",
-	                "syscalls":[]map[string]interface{}{{
-	                        "action":"SCMP_ACT_ALLOW",
-	                        "names": []string {"clone","socket","getuid","setrlimit","nanosleep","sendto","setuid","getpgrp","mkdir","getegid","getsockname","clock_gettime","prctl","epoll_pwait","futex","link","ftruncate","access","gettimeofday","select","getsockopt","mmap","write","connect","capget","chmod","arch_prctl","wait4","brk","stat","getrlimit","fsync","chroot","recvfrom","newfstatat","setresgid","poll","lstat","listen","getpgid","sigreturn","setreuid","setgid","signaldeliver","recvmsg","bind","close","setsockopt","openat","container","getpeername","lseek","procexit","uname","statfs","utime","pipe","getcwd","chdir","execve","rt_sigaction","set_tid_address","dup","ioctl","munmap","rename","kill","getpid","alarm","umask","setresuid","exit_group","fstat","geteuid","mprotect","read","getppid","fchown","capset","rt_sigprocmask","accept","setgroups","open","set_robust_list","fchownat","unlink","getdents","fcntl","readlink","getgid","fchmod"},
-	                },},
+	        ObjectMeta: metav1.ObjectMeta{
+			Name: "z-seccomp",
+			Namespace: "default",
+		},
+	        Spec: v1beta1.SeccompProfileSpec {
+	                Architectures: []v1beta1.Arch {"SCMP_ARCH_X86_64"},
+	                DefaultAction: "SCMP_ACT_LOG",
+	                Syscalls: []*v1beta1.Syscall {{
+	                        Action: "SCMP_ACT_ALLOW",
+	                        Names: []string {"clone","socket","getuid","setrlimit","nanosleep","sendto","setuid","getpgrp","mkdir","getegid","getsockname","clock_gettime","prctl","epoll_pwait","futex","link","ftruncate","access","gettimeofday","select","getsockopt","mmap","write","connect","capget","chmod","arch_prctl","wait4","brk","stat","getrlimit","fsync","chroot","recvfrom","newfstatat","setresgid","poll","lstat","listen","getpgid","sigreturn","setreuid","setgid","signaldeliver","recvmsg","bind","close","setsockopt","openat","container","getpeername","lseek","procexit","uname","statfs","utime","pipe","getcwd","chdir","execve","rt_sigaction","set_tid_address","dup","ioctl","munmap","rename","kill","getpid","alarm","umask","setresuid","exit_group","fstat","geteuid","mprotect","read","getppid","fchown","capset","rt_sigprocmask","accept","setgroups","open","set_robust_list","fchownat","unlink","getdents","fcntl","readlink","getgid","fchmod"},
+		        },
+	                },
 	        },
 	}
 
-	spoResponse1 = map[string]interface{}{
-	        "apiVersion": "security-profiles-operator.x-k8s.io/v1beta1",
-	        "kind": "SeccompProfile",
-	        "metadata": map[string]interface{} {
-	                "annotations": map[string]interface{}{},
-	                "name": "x-seccomp",
-	                "namespace": "default",
+	spoResponse1 = v1beta1.SeccompProfile {
+	        TypeMeta: metav1.TypeMeta{
+			APIVersion: "security-profiles-operator.x-k8s.io/v1beta1",
+			Kind: "SeccompProfile",
+		},
+	        ObjectMeta: metav1.ObjectMeta{
+                        Name: "x-seccomp",
+                        Namespace: "default",
 	        },
-	        "spec": map[string]interface{} {
-	                "architectures": []string {"SCMP_ARCH_X86_64"},
-	                "defaultAction": "SCMP_ACT_LOG",
-	                "syscalls":[]map[string]interface{}{{
-	                        "action":"SCMP_ACT_ALLOW",
-	                        "names": []string {"clone","socket","getuid","setrlimit","nanosleep","sendto","setuid","getpgrp","mkdir","getegid","getsockname","clock_gettime","prctl","epoll_pwait","futex","link","ftruncate","access","gettimeofday","select","getsockopt","mmap","write","connect","capget","chmod","arch_prctl","wait4","brk","stat","getrlimit","fsync","chroot","recvfrom","newfstatat","setresgid","poll","lstat","listen","getpgid","sigreturn","setreuid","setgid","signaldeliver","recvmsg","bind","close","setsockopt","openat","container","getpeername","lseek","procexit","uname","statfs","utime","pipe","getcwd","chdir","execve","rt_sigaction","set_tid_address","dup","ioctl","munmap","rename","kill","getpid","alarm","umask","setresuid","exit_group","fstat","geteuid","mprotect","read","getppid","fchown","capset","rt_sigprocmask","accept","setgroups","open","set_robust_list","fchownat","unlink","getdents","fcntl","readlink","getgid","dup3"},
-	                },},
-	        },
-	}
+		Spec: v1beta1.SeccompProfileSpec {
+	                Architectures: []v1beta1.Arch {"SCMP_ARCH_X86_64"},
+			DefaultAction: "SCMP_ACT_LOG",
+			Syscalls: []*v1beta1.Syscall {{
+				Action: "SCMP_ACT_ALLOW",
+	                        Names: []string {"clone","socket","getuid","setrlimit","nanosleep","sendto","setuid","getpgrp","mkdir","getegid","getsockname","clock_gettime","prctl","epoll_pwait","futex","link","ftruncate","access","gettimeofday","select","getsockopt","mmap","write","connect","capget","chmod","arch_prctl","wait4","brk","stat","getrlimit","fsync","chroot","recvfrom","newfstatat","setresgid","poll","lstat","listen","getpgid","sigreturn","setreuid","setgid","signaldeliver","recvmsg","bind","close","setsockopt","openat","container","getpeername","lseek","procexit","uname","statfs","utime","pipe","getcwd","chdir","execve","rt_sigaction","set_tid_address","dup","ioctl","munmap","rename","kill","getpid","alarm","umask","setresuid","exit_group","fstat","geteuid","mprotect","read","getppid","fchown","capset","rt_sigprocmask","accept","setgroups","open","set_robust_list","fchownat","unlink","getdents","fcntl","readlink","getgid","dup3"},
+			},
+                },
+        },
+}
+
 
 	groupVersion = &schema.GroupVersion{Group: "security-profiles-operator.x-k8s.io",
 					Version: "v1beta1"}
@@ -221,8 +227,7 @@ func TestReadSPOProfileCRD(t *testing.T) {
 	syscalls, err = sys.readSPOProfileCRD("z-seccomp.json", "default")
 	assert.Nil(t, err)
 	assert.NotNil(t, syscalls)
-        expected := spoResponse["spec"].(map[string]interface{})["syscalls"].
-                        ([]map[string]interface{})[0]["names"].([]string)
+        expected := spoResponse.Spec.Syscalls[0].Names
         assert.EqualValues(t, len(syscalls), len(expected))
 }
 
@@ -236,8 +241,7 @@ func TestGetSyscalls(t *testing.T) {
 	syscalls, err := sys.getSyscalls(pod)
 	assert.Nil(t, err)
 	assert.NotNil(t, syscalls)
-	expected := spoResponse["spec"].(map[string]interface{})["syscalls"].
-			([]map[string]interface{})[0]["names"].([]string)
+	expected := spoResponse.Spec.Syscalls[0].Names
 	assert.EqualValues(t, len(syscalls), len(expected))
 }
 
@@ -246,17 +250,15 @@ func TestGetUnconfinedSyscalls(t *testing.T) {
 	syscalls, err := sys.getUnconfinedSyscalls()
 	assert.Nil(t, err)
         assert.NotNil(t, syscalls)
-        expected := spoResponse["spec"].(map[string]interface{})["syscalls"].
-                        ([]map[string]interface{})[0]["names"].([]string)
+        expected := spoResponse.Spec.Syscalls[0].Names
         assert.EqualValues(t, len(syscalls), len(expected))
 }
 
 func TestCalcScore(t *testing.T) {
 	sys, _ := mockSysched()
-	score := sys.calcScore(spoResponse["spec"].(map[string]interface{})["syscalls"].
-			([]map[string]interface{})[0]["names"].([]string))
-	expected := spoResponse["spec"].(map[string]interface{})["syscalls"].
-			([]map[string]interface{})[0]["names"].([]string)
+	score := sys.calcScore(spoResponse.Spec.Syscalls[0].Names)
+        expected := spoResponse.Spec.Syscalls[0].Names
+
 	assert.EqualValues(t, score, len(expected))
 }
 
@@ -343,8 +345,7 @@ func  TestGetHostSyscalls(t *testing.T) {
         sys.addPod(pod)
 
 	cnt, _ := sys.getHostSyscalls(hostIP)
-	expected := spoResponse["spec"].(map[string]interface{})["syscalls"].
-			([]map[string]interface{})[0]["names"].([]string)
+	expected := spoResponse.Spec.Syscalls[0].Names
 	assert.EqualValues(t, cnt, len(expected))
 }
 
@@ -387,8 +388,7 @@ func TestUpdateHostSyscalls(t *testing.T) {
 
 	sys.updateHostSyscalls(pod1)
 
-	cnt := len(spoResponse["spec"].(map[string]interface{})["syscalls"].
-			([]map[string]interface{})[0]["names"].([]string))
+	cnt := len(spoResponse.Spec.Syscalls[0].Names)
 	sc, _ := sys.getHostSyscalls(hostIP)
 
 	assert.EqualValues(t, sc, cnt+1)
@@ -407,8 +407,7 @@ func TestAddPod(t *testing.T) {
 	sys.addPod(pod)
 
 	assert.EqualValues(t, sys.HostToPods[hostIP][0], pod)
-	expected := len(spoResponse["spec"].(map[string]interface{})["syscalls"].
-			([]map[string]interface{})[0]["names"].([]string))
+        expected := len(spoResponse.Spec.Syscalls[0].Names)
 	assert.EqualValues(t, len(sys.HostSyscalls[hostIP]), expected)
 }
 
@@ -428,8 +427,7 @@ func TestRecomputeHostSyscalls(t *testing.T) {
         pod1.Status.HostIP = hostIP
 
 	syscalls := sys.recomputeHostSyscalls([]*v1.Pod{pod, pod1})
-	expected := len(spoResponse["spec"].(map[string]interface{})["syscalls"].
-			([]map[string]interface{})[0]["names"].([]string))
+        expected := len(spoResponse.Spec.Syscalls[0].Names)
 	assert.EqualValues(t, len(syscalls), expected+1)
 }
 
@@ -454,8 +452,7 @@ func TestRemovePod(t *testing.T) {
 	sys.removePod(pod)
 
 	assert.EqualValues(t, len(sys.HostToPods[hostIP]), 1)
-	expected := len(spoResponse1["spec"].(map[string]interface{})["syscalls"].
-			([]map[string]interface{})[0]["names"].([]string))
+	expected := len(spoResponse1.Spec.Syscalls[0].Names)
 	assert.EqualValues(t, len(sys.HostSyscalls[hostIP]), expected)
 }
 
@@ -482,8 +479,7 @@ func TestPodUpdated (t *testing.T) {
 	sys.podUpdated(pod1, nil)
 
         assert.EqualValues(t, len(sys.HostToPods[hostIP]), 1)
-        expected := len(spoResponse["spec"].(map[string]interface{})["syscalls"].
-			([]map[string]interface{})[0]["names"].([]string))
+        expected := len(spoResponse.Spec.Syscalls[0].Names)
         assert.EqualValues(t, len(sys.HostSyscalls[hostIP]), expected)
 
 	pod1.Status.Phase = v1.PodPending
@@ -492,8 +488,7 @@ func TestPodUpdated (t *testing.T) {
 	sys.podUpdated(pod1, nil)
 
         assert.EqualValues(t, len(sys.HostToPods[hostIP]), 2)
-        expected = len(spoResponse["spec"].(map[string]interface{})["syscalls"].
-			([]map[string]interface{})[0]["names"].([]string))
+        expected = len(spoResponse.Spec.Syscalls[0].Names)
         assert.EqualValues(t, len(sys.HostSyscalls[hostIP]), expected+1)
 }
 
@@ -518,8 +513,7 @@ func TestPodDeleted(t *testing.T) {
         sys.podDeleted(pod)
 
         assert.EqualValues(t, len(sys.HostToPods[hostIP]), 1)
-        expected := len(spoResponse1["spec"].(map[string]interface{})["syscalls"].
-			([]map[string]interface{})[0]["names"].([]string))
+        expected := len(spoResponse1.Spec.Syscalls[0].Names)
         assert.EqualValues(t, len(sys.HostSyscalls[hostIP]), expected)
 }
 
