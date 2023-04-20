@@ -14,8 +14,6 @@ spec:
       labels:
         app: memcached1
     spec:
-      #serviceAccountName: default
-      #schedulerName: scheduler-plugins-scheduler
       containers:
       - name: memcached1
         image: memcached:latest
