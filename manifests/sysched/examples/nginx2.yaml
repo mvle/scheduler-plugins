@@ -14,8 +14,6 @@ spec:
       labels:
         app: nginx2
     spec:
-      #serviceAccountName: default
-      #schedulerName: scheduler-plugins-scheduler
       containers:
       - name: nginx2 
         image: nginx:1.16
