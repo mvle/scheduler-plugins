@@ -179,7 +179,7 @@ func TestRemove(t *testing.T) {
 func TestUnionList(t *testing.T) {
 	s := []string {"test", "test1"}
 	s1 := []string {"test1", "test2"}
-	s2 := UnionList(s, s1)
+	s2 := unionList(s, s1)
 	if len(s2) != 3 {
 		t.Errorf("lenght incorrect")
 	}
@@ -238,20 +238,10 @@ func TestGetSyscalls(t *testing.T) {
 			"localhost/operator/default/z-seccomp.json").Obj()
 
 	sys, _ := mockSysched()
-	syscalls, err := sys.getSyscalls(pod)
-	assert.Nil(t, err)
+	syscalls := sys.getSyscalls(pod)
 	assert.NotNil(t, syscalls)
 	expected := spoResponse.Spec.Syscalls[0].Names
 	assert.EqualValues(t, len(syscalls), len(expected))
-}
-
-func TestGetUnconfinedSyscalls(t *testing.T) {
-	sys, _ := mockSysched()
-	syscalls, err := sys.getUnconfinedSyscalls()
-	assert.Nil(t, err)
-        assert.NotNil(t, syscalls)
-        expected := spoResponse.Spec.Syscalls[0].Names
-        assert.EqualValues(t, len(syscalls), len(expected))
 }
 
 func TestCalcScore(t *testing.T) {
