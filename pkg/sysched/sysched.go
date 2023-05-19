@@ -5,15 +5,14 @@ package sysched
 // 2. handling the restart of scheduler to restore states
 
 import (
-	"fmt"
 	"context"
-	"strings"
-	"path"
+	"fmt"
 	"math"
+	"path"
+	"strings"
 
 	"github.com/containers/common/pkg/seccomp"
 	v1 "k8s.io/api/core/v1"
-	pluginconfig "sigs.k8s.io/scheduler-plugins/apis/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -21,21 +20,22 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/scheduler/framework"
 	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/helper"
+	pluginconfig "sigs.k8s.io/scheduler-plugins/apis/config"
 	"sigs.k8s.io/scheduler-plugins/pkg/sysched/clientset/v1alpha1"
 	"sigs.k8s.io/security-profiles-operator/api/seccompprofile/v1beta1"
 )
 
 type SySched struct {
-	handle			framework.Handle
-	clientSet		v1alpha1.SPOV1Alpha1Interface
-	HostToPods		map[string][]*v1.Pod
-	HostSyscalls		map[string]map[string]bool
-	CritSyscalls		map[string][]string
-	ExSAvg			float64
-	ExSAvgCount		int64
-	SyscallCRDNamespace	string
-	FullSyscallProfile	string
-	WeightedSyscallProfile	string
+	handle                 framework.Handle
+	clientSet              v1alpha1.SPOV1Alpha1Interface
+	HostToPods             map[string][]*v1.Pod
+	HostSyscalls           map[string]map[string]bool
+	CritSyscalls           map[string][]string
+	ExSAvg                 float64
+	ExSAvgCount            int64
+	SyscallCRDNamespace    string
+	FullSyscallProfile     string
+	WeightedSyscallProfile string
 }
 
 var _ framework.ScorePlugin = &SySched{}
@@ -111,14 +111,14 @@ func unionList(a, b []string) []string {
 // e.g., localhost/operator/<namespace>/<filename>.json OR
 // e.g., operator/<namespace>/<filename>.json
 func getCRDandNamespace(localhostProfile string) (string, string) {
-        if localhostProfile == "" {
-                return "", ""
-        }
+	if localhostProfile == "" {
+		return "", ""
+	}
 
-        parts := strings.Split(localhostProfile, "/")
-        if len(parts) < 3 {
-                return "", ""
-        }
+	parts := strings.Split(localhostProfile, "/")
+	if len(parts) < 3 {
+		return "", ""
+	}
 
 	// namespace is the second item in the path
 	// e.g.., operator/<namespace>/<filename>.json
@@ -130,10 +130,10 @@ func getCRDandNamespace(localhostProfile string) (string, string) {
 		ns = parts[2]
 	}
 
-        // get filename without extension
-        crdName := strings.TrimSuffix(parts[len(parts)-1], path.Ext(parts[len(parts)-1]))
+	// get filename without extension
+	crdName := strings.TrimSuffix(parts[len(parts)-1], path.Ext(parts[len(parts)-1]))
 
-        return ns, crdName
+	return ns, crdName
 }
 
 // fetch the system call list from a SPO seccomp profile CRD in a given namespace
@@ -170,7 +170,7 @@ func (sc *SySched) readSPOProfileCRD(crdName string, namespace string) ([]string
 // SPO is used to generate and input the seccomp profile to a pod
 // If a pod does not have a SPO seccomp profile, then an unconfined
 // system call set is return for the pod
-func (sc *SySched) getSyscalls(pod *v1.Pod) ([]string) {
+func (sc *SySched) getSyscalls(pod *v1.Pod) []string {
 	var r []string
 
 	// read the seccomp profile from the security context of a pod
@@ -261,7 +261,7 @@ func (sc *SySched) Name() string {
 }
 
 // TODO: weighting score for critical/cve syscalls
-// Currently, this function does not change score as the weight is set to 1, and 
+// Currently, this function does not change score as the weight is set to 1, and
 // no critical syscalls are given as input
 func (sc *SySched) calcScore(syscalls []string) int {
 	tot_crit := 0
@@ -481,7 +481,6 @@ func New(obj runtime.Object, handle framework.Handle) (framework.Plugin, error) 
 	// for full and weighted system call profiles
 	sc.SyscallCRDNamespace = args.SySchedCRDNamespace
 	sc.FullSyscallProfile = args.SySchedFullCRDName
-
 
 	v1beta1.AddToScheme(scheme.Scheme)
 

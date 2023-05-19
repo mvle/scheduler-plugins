@@ -2,10 +2,10 @@ package v1alpha1
 
 import (
 	"context"
-        "sigs.k8s.io/security-profiles-operator/api/seccompprofile/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/security-profiles-operator/api/seccompprofile/v1beta1"
 )
 
 type ProfileInterface interface {

@@ -260,8 +260,8 @@ type SySchedArgs struct {
 	metav1.TypeMeta
 
 	// The SySched CRD namespace for full and weighted system call profiles
-        SySchedCRDNamespace string
+	SySchedCRDNamespace string
 
 	// The SySched full system call profile CRD name
-        SySchedFullCRDName string
+	SySchedFullCRDName string
 }
