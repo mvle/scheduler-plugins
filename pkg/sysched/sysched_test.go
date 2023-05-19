@@ -2,81 +2,80 @@ package sysched
 
 import (
 	//"fmt"
-	"strings"
 	"bytes"
-	"encoding/json"
-	"net/http"
-	"testing"
 	"context"
-	"io/ioutil"
+	"encoding/json"
 	"github.com/stretchr/testify/assert"
-	restfake "k8s.io/client-go/rest/fake"
-	restclient "k8s.io/client-go/rest"
+	"io/ioutil"
 	v1 "k8s.io/api/core/v1"
-	st "k8s.io/kubernetes/pkg/scheduler/testing"
-	clientsetfake "k8s.io/client-go/kubernetes/fake"
-	frameworkruntime "k8s.io/kubernetes/pkg/scheduler/framework/runtime"
-	"sigs.k8s.io/security-profiles-operator/api/seccompprofile/v1beta1"
-        "k8s.io/apimachinery/pkg/runtime/schema"
-        "k8s.io/client-go/kubernetes/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1alpha1 "sigs.k8s.io/scheduler-plugins/pkg/sysched/clientset/v1alpha1"
-	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/queuesort"
-	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/defaultbinder"
-	"k8s.io/kubernetes/pkg/scheduler/framework"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	informers "k8s.io/client-go/informers"
+	clientsetfake "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/kubernetes/scheme"
+	restclient "k8s.io/client-go/rest"
+	restfake "k8s.io/client-go/rest/fake"
+	"k8s.io/kubernetes/pkg/scheduler/framework"
+	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/defaultbinder"
+	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/queuesort"
+	frameworkruntime "k8s.io/kubernetes/pkg/scheduler/framework/runtime"
+	st "k8s.io/kubernetes/pkg/scheduler/testing"
+	"net/http"
 	pluginconfig "sigs.k8s.io/scheduler-plugins/apis/config"
+	v1alpha1 "sigs.k8s.io/scheduler-plugins/pkg/sysched/clientset/v1alpha1"
+	"sigs.k8s.io/security-profiles-operator/api/seccompprofile/v1beta1"
+	"strings"
+	"testing"
 )
 
 var (
-	spoResponse = v1beta1.SeccompProfile {
-	        TypeMeta: metav1.TypeMeta{
+	spoResponse = v1beta1.SeccompProfile{
+		TypeMeta: metav1.TypeMeta{
 			APIVersion: "security-profiles-operator.x-k8s.io/v1beta1",
-                        Kind: "SeccompProfile",
-	        },
-	        ObjectMeta: metav1.ObjectMeta{
-			Name: "z-seccomp",
+			Kind:       "SeccompProfile",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "z-seccomp",
 			Namespace: "default",
 		},
-	        Spec: v1beta1.SeccompProfileSpec {
-	                Architectures: []v1beta1.Arch {"SCMP_ARCH_X86_64"},
-	                DefaultAction: "SCMP_ACT_LOG",
-	                Syscalls: []*v1beta1.Syscall {{
-	                        Action: "SCMP_ACT_ALLOW",
-	                        Names: []string {"clone","socket","getuid","setrlimit","nanosleep","sendto","setuid","getpgrp","mkdir","getegid","getsockname","clock_gettime","prctl","epoll_pwait","futex","link","ftruncate","access","gettimeofday","select","getsockopt","mmap","write","connect","capget","chmod","arch_prctl","wait4","brk","stat","getrlimit","fsync","chroot","recvfrom","newfstatat","setresgid","poll","lstat","listen","getpgid","sigreturn","setreuid","setgid","signaldeliver","recvmsg","bind","close","setsockopt","openat","container","getpeername","lseek","procexit","uname","statfs","utime","pipe","getcwd","chdir","execve","rt_sigaction","set_tid_address","dup","ioctl","munmap","rename","kill","getpid","alarm","umask","setresuid","exit_group","fstat","geteuid","mprotect","read","getppid","fchown","capset","rt_sigprocmask","accept","setgroups","open","set_robust_list","fchownat","unlink","getdents","fcntl","readlink","getgid","fchmod"},
-		        },
-	                },
-	        },
+		Spec: v1beta1.SeccompProfileSpec{
+			Architectures: []v1beta1.Arch{"SCMP_ARCH_X86_64"},
+			DefaultAction: "SCMP_ACT_LOG",
+			Syscalls: []*v1beta1.Syscall{{
+				Action: "SCMP_ACT_ALLOW",
+				Names:  []string{"clone", "socket", "getuid", "setrlimit", "nanosleep", "sendto", "setuid", "getpgrp", "mkdir", "getegid", "getsockname", "clock_gettime", "prctl", "epoll_pwait", "futex", "link", "ftruncate", "access", "gettimeofday", "select", "getsockopt", "mmap", "write", "connect", "capget", "chmod", "arch_prctl", "wait4", "brk", "stat", "getrlimit", "fsync", "chroot", "recvfrom", "newfstatat", "setresgid", "poll", "lstat", "listen", "getpgid", "sigreturn", "setreuid", "setgid", "signaldeliver", "recvmsg", "bind", "close", "setsockopt", "openat", "container", "getpeername", "lseek", "procexit", "uname", "statfs", "utime", "pipe", "getcwd", "chdir", "execve", "rt_sigaction", "set_tid_address", "dup", "ioctl", "munmap", "rename", "kill", "getpid", "alarm", "umask", "setresuid", "exit_group", "fstat", "geteuid", "mprotect", "read", "getppid", "fchown", "capset", "rt_sigprocmask", "accept", "setgroups", "open", "set_robust_list", "fchownat", "unlink", "getdents", "fcntl", "readlink", "getgid", "fchmod"},
+			},
+			},
+		},
 	}
 
-	spoResponse1 = v1beta1.SeccompProfile {
-	        TypeMeta: metav1.TypeMeta{
+	spoResponse1 = v1beta1.SeccompProfile{
+		TypeMeta: metav1.TypeMeta{
 			APIVersion: "security-profiles-operator.x-k8s.io/v1beta1",
-			Kind: "SeccompProfile",
+			Kind:       "SeccompProfile",
 		},
-	        ObjectMeta: metav1.ObjectMeta{
-                        Name: "x-seccomp",
-                        Namespace: "default",
-	        },
-		Spec: v1beta1.SeccompProfileSpec {
-	                Architectures: []v1beta1.Arch {"SCMP_ARCH_X86_64"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "x-seccomp",
+			Namespace: "default",
+		},
+		Spec: v1beta1.SeccompProfileSpec{
+			Architectures: []v1beta1.Arch{"SCMP_ARCH_X86_64"},
 			DefaultAction: "SCMP_ACT_LOG",
-			Syscalls: []*v1beta1.Syscall {{
+			Syscalls: []*v1beta1.Syscall{{
 				Action: "SCMP_ACT_ALLOW",
-	                        Names: []string {"clone","socket","getuid","setrlimit","nanosleep","sendto","setuid","getpgrp","mkdir","getegid","getsockname","clock_gettime","prctl","epoll_pwait","futex","link","ftruncate","access","gettimeofday","select","getsockopt","mmap","write","connect","capget","chmod","arch_prctl","wait4","brk","stat","getrlimit","fsync","chroot","recvfrom","newfstatat","setresgid","poll","lstat","listen","getpgid","sigreturn","setreuid","setgid","signaldeliver","recvmsg","bind","close","setsockopt","openat","container","getpeername","lseek","procexit","uname","statfs","utime","pipe","getcwd","chdir","execve","rt_sigaction","set_tid_address","dup","ioctl","munmap","rename","kill","getpid","alarm","umask","setresuid","exit_group","fstat","geteuid","mprotect","read","getppid","fchown","capset","rt_sigprocmask","accept","setgroups","open","set_robust_list","fchownat","unlink","getdents","fcntl","readlink","getgid","dup3"},
+				Names:  []string{"clone", "socket", "getuid", "setrlimit", "nanosleep", "sendto", "setuid", "getpgrp", "mkdir", "getegid", "getsockname", "clock_gettime", "prctl", "epoll_pwait", "futex", "link", "ftruncate", "access", "gettimeofday", "select", "getsockopt", "mmap", "write", "connect", "capget", "chmod", "arch_prctl", "wait4", "brk", "stat", "getrlimit", "fsync", "chroot", "recvfrom", "newfstatat", "setresgid", "poll", "lstat", "listen", "getpgid", "sigreturn", "setreuid", "setgid", "signaldeliver", "recvmsg", "bind", "close", "setsockopt", "openat", "container", "getpeername", "lseek", "procexit", "uname", "statfs", "utime", "pipe", "getcwd", "chdir", "execve", "rt_sigaction", "set_tid_address", "dup", "ioctl", "munmap", "rename", "kill", "getpid", "alarm", "umask", "setresuid", "exit_group", "fstat", "geteuid", "mprotect", "read", "getppid", "fchown", "capset", "rt_sigprocmask", "accept", "setgroups", "open", "set_robust_list", "fchownat", "unlink", "getdents", "fcntl", "readlink", "getgid", "dup3"},
 			},
-                },
-        },
-}
-
+			},
+		},
+	}
 
 	groupVersion = &schema.GroupVersion{Group: "security-profiles-operator.x-k8s.io",
-					Version: "v1beta1"}
-	aPIPath = "/apis"
+		Version: "v1beta1"}
+	aPIPath              = "/apis"
 	negotiatedSerializer = scheme.Codecs.WithoutConversion()
 
 	restclientSPO = restfake.RESTClient{NegotiatedSerializer: negotiatedSerializer,
-				GroupVersion: *groupVersion, VersionedAPIPath: aPIPath, Client: httpclient}
+		GroupVersion: *groupVersion, VersionedAPIPath: aPIPath, Client: httpclient}
 	spoclient = v1alpha1.SPOV1Alpha1Client{RestClient: &restclientSPO}
 
 	// fake SPO Get return
@@ -97,7 +96,6 @@ var (
 	}
 )
 
-
 func contains(s []string, str string) bool {
 	for _, v := range s {
 		if v == str {
@@ -109,41 +107,41 @@ func contains(s []string, str string) bool {
 
 func TestSetSubtract(t *testing.T) {
 	hostsyscalls := make(map[string]bool)
-        hostsyscalls["syscall1"] = true
-        hostsyscalls["syscall2"] = true
-        hostsyscalls["syscall3"] = true
-        hostsyscalls["syscall4"] = true
-        hostsyscalls["syscall5"] = true
+	hostsyscalls["syscall1"] = true
+	hostsyscalls["syscall2"] = true
+	hostsyscalls["syscall3"] = true
+	hostsyscalls["syscall4"] = true
+	hostsyscalls["syscall5"] = true
 
-        podsyscalls := []string{"syscall5", "syscall4"}
+	podsyscalls := []string{"syscall5", "syscall4"}
 
 	s := setSubtract(hostsyscalls, podsyscalls)
 
 	if len(s) != 3 {
 		t.Errorf("Incorrect size")
 	}
-        if contains(s, "syscall1") == false {
+	if contains(s, "syscall1") == false {
 		t.Errorf("Missing syscall1")
 	}
-        if contains(s, "syscall2") == false {
+	if contains(s, "syscall2") == false {
 		t.Errorf("Missing syscall2")
 	}
-        if contains(s, "syscall3") == false {
+	if contains(s, "syscall3") == false {
 		t.Errorf("Missing syscall3")
 	}
-        if contains(s, "syscall4") == true {
+	if contains(s, "syscall4") == true {
 		t.Errorf("syscall4 not removed")
 	}
-        if contains(s, "syscall5") == true {
+	if contains(s, "syscall5") == true {
 		t.Errorf("syscall3 not removed")
 	}
 }
 
 func TestUnion(t *testing.T) {
 	hostsyscalls := make(map[string]bool)
-        hostsyscalls["syscall1"] = true
-        hostsyscalls["syscall2"] = true
-        hostsyscalls["syscall3"] = true
+	hostsyscalls["syscall1"] = true
+	hostsyscalls["syscall2"] = true
+	hostsyscalls["syscall3"] = true
 
 	podsyscalls := []string{"syscall4", "syscall5"}
 	union(hostsyscalls, podsyscalls)
@@ -158,7 +156,7 @@ func TestUnion(t *testing.T) {
 	expected["syscall4"] = true
 	expected["syscall5"] = true
 
-        for k, _ := range expected {
+	for k := range expected {
 		if _, ok := hostsyscalls[k]; !ok {
 			t.Errorf("missing element")
 		}
@@ -177,8 +175,8 @@ func TestRemove(t *testing.T) {
 }
 
 func TestUnionList(t *testing.T) {
-	s := []string {"test", "test1"}
-	s1 := []string {"test1", "test2"}
+	s := []string{"test", "test1"}
+	s1 := []string{"test1", "test2"}
 	s2 := unionList(s, s1)
 	if len(s2) != 3 {
 		t.Errorf("lenght incorrect")
@@ -197,21 +195,21 @@ func TestGetCRDNamespace(t *testing.T) {
 }
 
 func mockSysched() (*SySched, error) {
-        v1beta1.AddToScheme(scheme.Scheme)
+	v1beta1.AddToScheme(scheme.Scheme)
 
 	//fake out the framework handle
 	ctx := context.Background()
-        fr, err := st.NewFramework(registeredPlugins, Name, ctx.Done(),
-                frameworkruntime.WithClientSet(clientsetfake.NewSimpleClientset()))
+	fr, err := st.NewFramework(registeredPlugins, Name, ctx.Done(),
+		frameworkruntime.WithClientSet(clientsetfake.NewSimpleClientset()))
 	if err != nil {
-                return nil, err
+		return nil, err
 	}
 
 	sys := SySched{handle: fr, clientSet: &spoclient}
-        sys.HostToPods = make(map[string][]*v1.Pod)
-        sys.HostSyscalls = make(map[string]map[string]bool)
-        sys.ExSAvg = 0
-        sys.ExSAvgCount = 1
+	sys.HostToPods = make(map[string][]*v1.Pod)
+	sys.HostSyscalls = make(map[string]map[string]bool)
+	sys.ExSAvg = 0
+	sys.ExSAvgCount = 1
 	sys.FullSyscallProfile = "z-seccomp.json"
 	sys.SyscallCRDNamespace = "default"
 
@@ -227,8 +225,8 @@ func TestReadSPOProfileCRD(t *testing.T) {
 	syscalls, err = sys.readSPOProfileCRD("z-seccomp.json", "default")
 	assert.Nil(t, err)
 	assert.NotNil(t, syscalls)
-        expected := spoResponse.Spec.Syscalls[0].Names
-        assert.EqualValues(t, len(syscalls), len(expected))
+	expected := spoResponse.Spec.Syscalls[0].Names
+	assert.EqualValues(t, len(syscalls), len(expected))
 }
 
 func TestGetSyscalls(t *testing.T) {
@@ -247,19 +245,19 @@ func TestGetSyscalls(t *testing.T) {
 func TestCalcScore(t *testing.T) {
 	sys, _ := mockSysched()
 	score := sys.calcScore(spoResponse.Spec.Syscalls[0].Names)
-        expected := spoResponse.Spec.Syscalls[0].Names
+	expected := spoResponse.Spec.Syscalls[0].Names
 
 	assert.EqualValues(t, score, len(expected))
 }
 
 func TestScore(t *testing.T) {
-        v1beta1.AddToScheme(scheme.Scheme)
+	v1beta1.AddToScheme(scheme.Scheme)
 
 	//create nodes and pods
 	hostIP := "192.168.0.1"
 	node := st.MakeNode()
 	node.Name("test")
-	node.Status.Addresses = []v1.NodeAddress{v1.NodeAddress{Address: hostIP}}
+	node.Status.Addresses = []v1.NodeAddress{{Address: hostIP}}
 
 	//fake out an existing pod
 	pod := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
@@ -267,25 +265,25 @@ func TestScore(t *testing.T) {
 	pod.Name = "pod1"
 	pod.Status.HostIP = hostIP
 
-        //fake out the framework handle
-        ctx := context.Background()
-        fr, err := st.NewFramework(registeredPlugins, Name, ctx.Done(),
-                frameworkruntime.WithClientSet(clientsetfake.NewSimpleClientset(node.Obj())))
+	//fake out the framework handle
+	ctx := context.Background()
+	fr, err := st.NewFramework(registeredPlugins, Name, ctx.Done(),
+		frameworkruntime.WithClientSet(clientsetfake.NewSimpleClientset(node.Obj())))
 	if err != nil {
-                t.Error(err)
+		t.Error(err)
 	}
 
-        sys := SySched{handle: fr, clientSet: &spoclient}
-        sys.HostToPods = make(map[string][]*v1.Pod)
-        sys.HostSyscalls = make(map[string]map[string]bool)
-        sys.ExSAvg = 0
-        sys.ExSAvgCount = 1
+	sys := SySched{handle: fr, clientSet: &spoclient}
+	sys.HostToPods = make(map[string][]*v1.Pod)
+	sys.HostSyscalls = make(map[string]map[string]bool)
+	sys.ExSAvg = 0
+	sys.ExSAvgCount = 1
 
 	sys.addPod(pod)
 
 	//fake out a new pod to be scheduled
 	pod1 := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
-			"localhost/operator/default/x-seccomp.json").Obj()
+		"localhost/operator/default/x-seccomp.json").Obj()
 
 	score, _ := sys.Score(context.Background(), nil, pod1, "test")
 	assert.EqualValues(t, score, 2)
@@ -293,10 +291,10 @@ func TestScore(t *testing.T) {
 
 func TestNormalizeScore(t *testing.T) {
 	nodescores := framework.NodeScoreList{framework.NodeScore{Name: "test", Score: 100},
-				framework.NodeScore{Name: "test1", Score: 200}}
+		framework.NodeScore{Name: "test1", Score: 200}}
 	sys, _ := mockSysched()
 	pod := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
-			"localhost/operator/default/httpd-seccomp.json").Obj()
+		"localhost/operator/default/httpd-seccomp.json").Obj()
 	pod.Name = "pod1"
 	ret := sys.NormalizeScore(context.TODO(), nil, pod, nodescores)
 	assert.Nil(t, ret)
@@ -304,35 +302,35 @@ func TestNormalizeScore(t *testing.T) {
 	assert.EqualValues(t, nodescores[1].Score, 0)
 }
 
-func  TestGetHostSyscalls(t *testing.T) {
-        v1beta1.AddToScheme(scheme.Scheme)
+func TestGetHostSyscalls(t *testing.T) {
+	v1beta1.AddToScheme(scheme.Scheme)
 
-        //create nodes and pods
-        hostIP := "192.168.0.1"
-        node := st.MakeNode()
-        node.Name("test")
-        node.Status.Addresses = []v1.NodeAddress{v1.NodeAddress{Address: hostIP}}
+	//create nodes and pods
+	hostIP := "192.168.0.1"
+	node := st.MakeNode()
+	node.Name("test")
+	node.Status.Addresses = []v1.NodeAddress{{Address: hostIP}}
 
-        pod := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
-			"localhost/operator/default/httpd-seccomp.json").Obj()
-        pod.Name = "pod1"
-        pod.Status.HostIP = hostIP
+	pod := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
+		"localhost/operator/default/httpd-seccomp.json").Obj()
+	pod.Name = "pod1"
+	pod.Status.HostIP = hostIP
 
-        //fake out the framework handle
-        ctx := context.Background()
-        fr, err := st.NewFramework(registeredPlugins, Name, ctx.Done(),
-                frameworkruntime.WithClientSet(clientsetfake.NewSimpleClientset(node.Obj())))
-        if err != nil {
-                t.Error(err)
-        }
+	//fake out the framework handle
+	ctx := context.Background()
+	fr, err := st.NewFramework(registeredPlugins, Name, ctx.Done(),
+		frameworkruntime.WithClientSet(clientsetfake.NewSimpleClientset(node.Obj())))
+	if err != nil {
+		t.Error(err)
+	}
 
-        sys := SySched{handle: fr, clientSet: &spoclient}
-        sys.HostToPods = make(map[string][]*v1.Pod)
-        sys.HostSyscalls = make(map[string]map[string]bool)
-        sys.ExSAvg = 0
-        sys.ExSAvgCount = 1
+	sys := SySched{handle: fr, clientSet: &spoclient}
+	sys.HostToPods = make(map[string][]*v1.Pod)
+	sys.HostSyscalls = make(map[string]map[string]bool)
+	sys.ExSAvg = 0
+	sys.ExSAvgCount = 1
 
-        sys.addPod(pod)
+	sys.addPod(pod)
 
 	cnt, _ := sys.getHostSyscalls(hostIP)
 	expected := spoResponse.Spec.Syscalls[0].Names
@@ -340,41 +338,41 @@ func  TestGetHostSyscalls(t *testing.T) {
 }
 
 func TestUpdateHostSyscalls(t *testing.T) {
-        v1beta1.AddToScheme(scheme.Scheme)
+	v1beta1.AddToScheme(scheme.Scheme)
 
-        //create nodes and pods
-        hostIP := "192.168.0.1"
-        node := st.MakeNode()
-        node.Name("test")
-        node.Status.Addresses = []v1.NodeAddress{v1.NodeAddress{Address: hostIP}}
+	//create nodes and pods
+	hostIP := "192.168.0.1"
+	node := st.MakeNode()
+	node.Name("test")
+	node.Status.Addresses = []v1.NodeAddress{{Address: hostIP}}
 
-        //fake out an existing pod
-        pod := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
-			"localhost/operator/default/z-seccomp.json").Obj()
-        pod.Name = "pod1"
-        pod.Status.HostIP = hostIP
+	//fake out an existing pod
+	pod := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
+		"localhost/operator/default/z-seccomp.json").Obj()
+	pod.Name = "pod1"
+	pod.Status.HostIP = hostIP
 
-        //fake out the framework handle
-        ctx := context.Background()
-        fr, err := st.NewFramework(registeredPlugins, Name, ctx.Done(),
-                frameworkruntime.WithClientSet(clientsetfake.NewSimpleClientset(node.Obj())))
-        if err != nil {
-                t.Error(err)
-        }
+	//fake out the framework handle
+	ctx := context.Background()
+	fr, err := st.NewFramework(registeredPlugins, Name, ctx.Done(),
+		frameworkruntime.WithClientSet(clientsetfake.NewSimpleClientset(node.Obj())))
+	if err != nil {
+		t.Error(err)
+	}
 
-        sys := SySched{handle: fr, clientSet: &spoclient}
+	sys := SySched{handle: fr, clientSet: &spoclient}
 
-        sys.HostToPods = make(map[string][]*v1.Pod)
-        sys.HostSyscalls = make(map[string]map[string]bool)
-        sys.ExSAvg = 0
-        sys.ExSAvgCount = 1
+	sys.HostToPods = make(map[string][]*v1.Pod)
+	sys.HostSyscalls = make(map[string]map[string]bool)
+	sys.ExSAvg = 0
+	sys.ExSAvgCount = 1
 
-        sys.addPod(pod)
+	sys.addPod(pod)
 
-        pod1 := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
-			"localhost/operator/default/x-seccomp.json").Obj()
-        pod1.Name = "pod2"
-        pod1.Status.HostIP = hostIP
+	pod1 := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
+		"localhost/operator/default/x-seccomp.json").Obj()
+	pod1.Name = "pod2"
+	pod1.Status.HostIP = hostIP
 
 	sys.updateHostSyscalls(pod1)
 
@@ -387,54 +385,54 @@ func TestUpdateHostSyscalls(t *testing.T) {
 func TestAddPod(t *testing.T) {
 	sys, _ := mockSysched()
 
-        //fake out a pod
-        hostIP := "192.168.0.1"
-        pod := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
-			"localhost/operator/default/z-seccomp.json").Obj()
-        pod.Name = "pod1"
-        pod.Status.HostIP = hostIP
+	//fake out a pod
+	hostIP := "192.168.0.1"
+	pod := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
+		"localhost/operator/default/z-seccomp.json").Obj()
+	pod.Name = "pod1"
+	pod.Status.HostIP = hostIP
 
 	sys.addPod(pod)
 
 	assert.EqualValues(t, sys.HostToPods[hostIP][0], pod)
-        expected := len(spoResponse.Spec.Syscalls[0].Names)
+	expected := len(spoResponse.Spec.Syscalls[0].Names)
 	assert.EqualValues(t, len(sys.HostSyscalls[hostIP]), expected)
 }
 
 func TestRecomputeHostSyscalls(t *testing.T) {
-        sys, _ := mockSysched()
+	sys, _ := mockSysched()
 
-        //fake out a pod
-        hostIP := "192.168.0.1"
-        pod := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
-			"localhost/operator/default/z-seccomp.json").Obj()
-        pod.Name = "pod1"
-        pod.Status.HostIP = hostIP
+	//fake out a pod
+	hostIP := "192.168.0.1"
+	pod := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
+		"localhost/operator/default/z-seccomp.json").Obj()
+	pod.Name = "pod1"
+	pod.Status.HostIP = hostIP
 
-        pod1 := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
-			"localhost/operator/default/x-seccomp.json").Obj()
-        pod1.Name = "pod2"
-        pod1.Status.HostIP = hostIP
+	pod1 := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
+		"localhost/operator/default/x-seccomp.json").Obj()
+	pod1.Name = "pod2"
+	pod1.Status.HostIP = hostIP
 
 	syscalls := sys.recomputeHostSyscalls([]*v1.Pod{pod, pod1})
-        expected := len(spoResponse.Spec.Syscalls[0].Names)
+	expected := len(spoResponse.Spec.Syscalls[0].Names)
 	assert.EqualValues(t, len(syscalls), expected+1)
 }
 
 func TestRemovePod(t *testing.T) {
 	sys, _ := mockSysched()
 
-        //fake out a pod
-        hostIP := "192.168.0.1"
-        pod := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
-			"localhost/operator/default/z-seccomp.json").Obj()
-        pod.Name = "pod1"
-        pod.Status.HostIP = hostIP
+	//fake out a pod
+	hostIP := "192.168.0.1"
+	pod := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
+		"localhost/operator/default/z-seccomp.json").Obj()
+	pod.Name = "pod1"
+	pod.Status.HostIP = hostIP
 
-        pod1 := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
-			"localhost/operator/default/x-seccomp.json").Obj()
-        pod1.Name = "pod2"
-        pod1.Status.HostIP = hostIP
+	pod1 := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
+		"localhost/operator/default/x-seccomp.json").Obj()
+	pod1.Name = "pod2"
+	pod1.Status.HostIP = hostIP
 
 	sys.addPod(pod)
 	sys.addPod(pod1)
@@ -446,71 +444,71 @@ func TestRemovePod(t *testing.T) {
 	assert.EqualValues(t, len(sys.HostSyscalls[hostIP]), expected)
 }
 
-func TestPodUpdated (t *testing.T) {
-        sys, _ := mockSysched()
+func TestPodUpdated(t *testing.T) {
+	sys, _ := mockSysched()
 
-        //fake out a pod
-        hostIP := "192.168.0.1"
-        pod := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
+	//fake out a pod
+	hostIP := "192.168.0.1"
+	pod := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
 		"localhost/operator/default/z-seccomp.json").Obj()
-        pod.Name = "pod1"
-        pod.Status.HostIP = hostIP
+	pod.Name = "pod1"
+	pod.Status.HostIP = hostIP
 
-        pod1 := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
+	pod1 := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
 		"localhost/operator/default/x-seccomp.json").Obj()
-        pod1.Name = "pod2"
-        pod1.Status.HostIP = hostIP
+	pod1.Name = "pod2"
+	pod1.Status.HostIP = hostIP
 
-        sys.addPod(pod)
-        sys.addPod(pod1)
+	sys.addPod(pod)
+	sys.addPod(pod1)
 
 	pod1.Status.Phase = v1.PodSucceeded
 
 	sys.podUpdated(pod1, nil)
 
-        assert.EqualValues(t, len(sys.HostToPods[hostIP]), 1)
-        expected := len(spoResponse.Spec.Syscalls[0].Names)
-        assert.EqualValues(t, len(sys.HostSyscalls[hostIP]), expected)
+	assert.EqualValues(t, len(sys.HostToPods[hostIP]), 1)
+	expected := len(spoResponse.Spec.Syscalls[0].Names)
+	assert.EqualValues(t, len(sys.HostSyscalls[hostIP]), expected)
 
 	pod1.Status.Phase = v1.PodPending
 	pod1.Status.HostIP = hostIP
 
 	sys.podUpdated(pod1, nil)
 
-        assert.EqualValues(t, len(sys.HostToPods[hostIP]), 2)
-        expected = len(spoResponse.Spec.Syscalls[0].Names)
-        assert.EqualValues(t, len(sys.HostSyscalls[hostIP]), expected+1)
+	assert.EqualValues(t, len(sys.HostToPods[hostIP]), 2)
+	expected = len(spoResponse.Spec.Syscalls[0].Names)
+	assert.EqualValues(t, len(sys.HostSyscalls[hostIP]), expected+1)
 }
 
 func TestPodDeleted(t *testing.T) {
-        sys, _ := mockSysched()
+	sys, _ := mockSysched()
 
-        //fake out a pod
-        hostIP := "192.168.0.1"
-        pod := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
-			"localhost/operator/default/z-seccomp.json").Obj()
-        pod.Name = "pod1"
-        pod.Status.HostIP = hostIP
+	//fake out a pod
+	hostIP := "192.168.0.1"
+	pod := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
+		"localhost/operator/default/z-seccomp.json").Obj()
+	pod.Name = "pod1"
+	pod.Status.HostIP = hostIP
 
-        pod1 := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
-			"localhost/operator/default/x-seccomp.json").Obj()
-        pod1.Name = "pod2"
-        pod1.Status.HostIP = hostIP
+	pod1 := st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
+		"localhost/operator/default/x-seccomp.json").Obj()
+	pod1.Name = "pod2"
+	pod1.Status.HostIP = hostIP
 
-        sys.addPod(pod)
-        sys.addPod(pod1)
+	sys.addPod(pod)
+	sys.addPod(pod1)
 
-        sys.podDeleted(pod)
+	sys.podDeleted(pod)
 
-        assert.EqualValues(t, len(sys.HostToPods[hostIP]), 1)
-        expected := len(spoResponse1.Spec.Syscalls[0].Names)
-        assert.EqualValues(t, len(sys.HostSyscalls[hostIP]), expected)
+	assert.EqualValues(t, len(sys.HostToPods[hostIP]), 1)
+	expected := len(spoResponse1.Spec.Syscalls[0].Names)
+	assert.EqualValues(t, len(sys.HostSyscalls[hostIP]), expected)
 }
 
 func TestGetArgs(t *testing.T) {
-	args := pluginconfig.SySchedArgs {
+	args := pluginconfig.SySchedArgs{
 		SySchedCRDNamespace: "default",
-		SySchedFullCRDName: "x-seccomp.json",
+		SySchedFullCRDName:  "x-seccomp.json",
 	}
 	retargs, err := getArgs(&args)
 	assert.Nil(t, err)
@@ -518,19 +516,19 @@ func TestGetArgs(t *testing.T) {
 }
 
 func TestNew(t *testing.T) {
-        ctx := context.Background()
+	ctx := context.Background()
 	fakeclient := clientsetfake.NewSimpleClientset()
-        fr, err := st.NewFramework(registeredPlugins, Name, ctx.Done(),
+	fr, err := st.NewFramework(registeredPlugins, Name, ctx.Done(),
 		frameworkruntime.WithInformerFactory(informers.NewSharedInformerFactory(fakeclient, 0)),
 		frameworkruntime.WithKubeConfig(&restclient.Config{}),
-                frameworkruntime.WithClientSet(fakeclient))
-        if err != nil {
-                t.Error(err)
-        }
+		frameworkruntime.WithClientSet(fakeclient))
+	if err != nil {
+		t.Error(err)
+	}
 
-	args := pluginconfig.SySchedArgs {
+	args := pluginconfig.SySchedArgs{
 		SySchedCRDNamespace: "default",
-		SySchedFullCRDName: "x-seccomp.json",
+		SySchedFullCRDName:  "x-seccomp.json",
 	}
 
 	sys, err := New(&args, fr)

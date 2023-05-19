@@ -95,7 +95,7 @@ var (
 	// DefaultNetworkTopologyName contains the networkTopology CR name to be used by networkAware plugins
 	DefaultNetworkTopologyName = "nt-default"
 
-        // Defaults for SySched
+	// Defaults for SySched
 	// DefaultSySchedCRDNamespace is the default namesapce for full and weighted syscall CRDs used by SySched plugin
 	DefaultSySchedCRDNamespace = "default"
 	// DefaultSySchedFullCRDName contains the full syscall CRD name to be used by SySched plugin
