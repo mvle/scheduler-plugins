@@ -99,7 +99,7 @@ var (
 	// DefaultSySchedCRDNamespace is the default namesapce for full and weighted syscall CRDs used by SySched plugin
 	DefaultSySchedCRDNamespace = "default"
 	// DefaultSySchedFullCRDName contains the full syscall CRD name to be used by SySched plugin
-	DefaultSySchedFullCRDName = "full-profile"
+	DefaultSySchedFullCRDName = "all-syscalls"
 )
 
 // SetDefaults_CoschedulingArgs sets the default parameters for Coscheduling plugin.

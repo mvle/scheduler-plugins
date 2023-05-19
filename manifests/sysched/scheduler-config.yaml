@@ -15,4 +15,4 @@ profiles:
     - name: SySched
       args:
         syschedCRDNamespace: "default"
-        syschedFullCRDName: "full-seccomp"
+        syschedFullCRDName: "all-syscalls"
