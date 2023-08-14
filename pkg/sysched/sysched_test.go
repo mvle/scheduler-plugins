@@ -210,8 +210,8 @@ func mockSysched() (*SySched, error) {
 	sys.HostSyscalls = make(map[string]map[string]bool)
 	sys.ExSAvg = 0
 	sys.ExSAvgCount = 1
-	sys.FullSyscallProfile = "z-seccomp.json"
-	sys.SyscallCRDNamespace = "default"
+	sys.DefaultProfileName = "z-seccomp.json"
+	sys.DefaultProfileNamespace = "default"
 
 	return &sys, err
 }
@@ -507,8 +507,8 @@ func TestPodDeleted(t *testing.T) {
 
 func TestGetArgs(t *testing.T) {
 	args := pluginconfig.SySchedArgs{
-		SySchedCRDNamespace: "default",
-		SySchedFullCRDName:  "x-seccomp.json",
+		DefaultProfileNamespace: "default",
+		DefaultProfileName:  "x-seccomp.json",
 	}
 	retargs, err := getArgs(&args)
 	assert.Nil(t, err)
@@ -527,8 +527,8 @@ func TestNew(t *testing.T) {
 	}
 
 	args := pluginconfig.SySchedArgs{
-		SySchedCRDNamespace: "default",
-		SySchedFullCRDName:  "x-seccomp.json",
+		DefaultProfileNamespace: "default",
+		DefaultProfileName:  "x-seccomp.json",
 	}
 
 	sys, err := New(&args, fr)
