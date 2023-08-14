@@ -247,9 +247,9 @@ type NetworkOverheadArgs struct {
 type SySchedArgs struct {
 	metav1.TypeMeta `json:",inline"`
 
-	// The SySched CRD namespace for full and weighted system call profiles
-	SySchedCRDNamespace *string `json:"syschedCRDNamespace,omitempty"`
+	// CR namespace of the default profile for all system calls
+	DefaultProfileNamespace *string `json:"defaultProfileNamespace,omitempty"`
 
-	// The SySched full system call profile CRD name
-	SySchedFullCRDName *string `json:"syschedFullCRDName,omitempty"`
+	// CR name of the default profile for all system calls
+	DefaultProfileName *string `json:"defaultProfileName,omitempty"`
 }

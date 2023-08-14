@@ -363,13 +363,13 @@ func (in *ScoringStrategy) DeepCopy() *ScoringStrategy {
 func (in *SySchedArgs) DeepCopyInto(out *SySchedArgs) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	if in.SySchedCRDNamespace != nil {
-		in, out := &in.SySchedCRDNamespace, &out.SySchedCRDNamespace
+	if in.DefaultProfileNamespace != nil {
+		in, out := &in.DefaultProfileNamespace, &out.DefaultProfileNamespace
 		*out = new(string)
 		**out = **in
 	}
-	if in.SySchedFullCRDName != nil {
-		in, out := &in.SySchedFullCRDName, &out.SySchedFullCRDName
+	if in.DefaultProfileName != nil {
+		in, out := &in.DefaultProfileName, &out.DefaultProfileName
 		*out = new(string)
 		**out = **in
 	}
