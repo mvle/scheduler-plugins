@@ -26,16 +26,16 @@ import (
 )
 
 type SySched struct {
-	handle                 framework.Handle
-	clientSet              v1alpha1.SPOV1Alpha1Interface
-	HostToPods             map[string][]*v1.Pod
-	HostSyscalls           map[string]map[string]bool
-	CritSyscalls           map[string][]string
-	ExSAvg                 float64
-	ExSAvgCount            int64
-	SyscallCRDNamespace    string
-	FullSyscallProfile     string
-	WeightedSyscallProfile string
+	handle                  framework.Handle
+	clientSet               v1alpha1.SPOV1Alpha1Interface
+	HostToPods              map[string][]*v1.Pod
+	HostSyscalls            map[string]map[string]bool
+	CritSyscalls            map[string][]string
+	ExSAvg                  float64
+	ExSAvgCount             int64
+	DefaultProfileNamespace string
+	DefaultProfileName      string
+	WeightedSyscallProfile  string
 }
 
 var _ framework.ScorePlugin = &SySched{}
@@ -242,7 +242,7 @@ func (sc *SySched) getSyscalls(pod *v1.Pod) []string {
 
 	// if a pod does not have a seccomp profile specified, return the set of all syscalls
 	if len(r) == 0 {
-		syscalls, err := sc.readSPOProfileCRD(sc.FullSyscallProfile, sc.SyscallCRDNamespace)
+		syscalls, err := sc.readSPOProfileCRD(sc.DefaultProfileName, sc.DefaultProfileNamespace)
 		if err != nil {
 			klog.ErrorS(err, "Failed to read the CRD of all syscalls")
 		}
@@ -477,10 +477,9 @@ func New(obj runtime.Object, handle framework.Handle) (framework.Plugin, error) 
 		return nil, err
 	}
 
-	// get the syscall CRD namespace name and CRD names
-	// for full and weighted system call profiles
-	sc.SyscallCRDNamespace = args.SySchedCRDNamespace
-	sc.FullSyscallProfile = args.SySchedFullCRDName
+	// get the default syscall profile CR namespace and name for all syscalls
+	sc.DefaultProfileNamespace = args.DefaultProfileNamespace
+	sc.DefaultProfileName = args.DefaultProfileName
 
 	v1beta1.AddToScheme(scheme.Scheme)
 
