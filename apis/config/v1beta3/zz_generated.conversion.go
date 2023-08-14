@@ -470,10 +470,10 @@ func Convert_config_ScoringStrategy_To_v1beta3_ScoringStrategy(in *config.Scorin
 }
 
 func autoConvert_v1beta3_SySchedArgs_To_config_SySchedArgs(in *SySchedArgs, out *config.SySchedArgs, s conversion.Scope) error {
-	if err := v1.Convert_Pointer_string_To_string(&in.SySchedCRDNamespace, &out.SySchedCRDNamespace, s); err != nil {
+	if err := v1.Convert_Pointer_string_To_string(&in.DefaultProfileNamespace, &out.DefaultProfileNamespace, s); err != nil {
 		return err
 	}
-	if err := v1.Convert_Pointer_string_To_string(&in.SySchedFullCRDName, &out.SySchedFullCRDName, s); err != nil {
+	if err := v1.Convert_Pointer_string_To_string(&in.DefaultProfileName, &out.DefaultProfileName, s); err != nil {
 		return err
 	}
 	return nil
@@ -485,10 +485,10 @@ func Convert_v1beta3_SySchedArgs_To_config_SySchedArgs(in *SySchedArgs, out *con
 }
 
 func autoConvert_config_SySchedArgs_To_v1beta3_SySchedArgs(in *config.SySchedArgs, out *SySchedArgs, s conversion.Scope) error {
-	if err := v1.Convert_string_To_Pointer_string(&in.SySchedCRDNamespace, &out.SySchedCRDNamespace, s); err != nil {
+	if err := v1.Convert_string_To_Pointer_string(&in.DefaultProfileNamespace, &out.DefaultProfileNamespace, s); err != nil {
 		return err
 	}
-	if err := v1.Convert_string_To_Pointer_string(&in.SySchedFullCRDName, &out.SySchedFullCRDName, s); err != nil {
+	if err := v1.Convert_string_To_Pointer_string(&in.DefaultProfileName, &out.DefaultProfileName, s); err != nil {
 		return err
 	}
 	return nil

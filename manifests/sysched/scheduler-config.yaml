@@ -14,5 +14,5 @@ profiles:
   pluginConfig:
     - name: SySched
       args:
-        syschedCRDNamespace: "default"
-        syschedFullCRDName: "all-syscalls"
+        defaultProfileNamespace: "default"
+        defaultProfileName: "all-syscalls"

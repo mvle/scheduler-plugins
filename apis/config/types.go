@@ -259,9 +259,9 @@ type NetworkOverheadArgs struct {
 type SySchedArgs struct {
 	metav1.TypeMeta
 
-	// The SySched CRD namespace for full and weighted system call profiles
-	SySchedCRDNamespace string
+	// CR namespace of the default profile for all system calls
+	DefaultProfileNamespace string
 
-	// The SySched full system call profile CRD name
-	SySchedFullCRDName string
+	// CR name of the default profile for all system calls
+	DefaultProfileName string
 }

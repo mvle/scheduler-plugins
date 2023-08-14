@@ -7,8 +7,8 @@ based on [SySched](https://github.com/kubernetes-sigs/scheduler-plugins/tree/mas
 
 <!-- Check one of the values: Sample, Alpha, Beta, GA -->
 
-- [x] 💡 Sample (for demonstrating and inspiring purpose)
-- [ ] 👶 Alpha (used in companies for pilot projects)
+- [ ] 💡 Sample (for demonstrating and inspiring purpose)
+- [x] 👶 Alpha (used in companies for pilot projects)
 - [ ] 👦 Beta (used in companies and developed actively)
 - [ ] 👨 Stable (used in companies for production workloads)
 
@@ -44,7 +44,7 @@ $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/security-pr
 
 ### Scheduler configuration
 
-The `SySched` plugin has its own specific parameters. Following is an example (`manifests/sysched/examples/scheduler-config.yaml`) scheduler configuration for `SySched`.
+The `SySched` plugin has its own specific parameters. Following is an example (`manifests/sysched/scheduler-config.yaml`) scheduler configuration for `SySched`.
 
 ```
 apiVersion: kubescheduler.config.k8s.io/v1beta3
@@ -63,8 +63,8 @@ profiles:
   pluginConfig:
     - name: SySched
       args:
-        syschedCRDNamespace: "default"
-        syschedFullCRDName: "full-seccomp"
+        defaultProfileNamespace: "default"
+        defaultProfileName: "full-seccomp"
 ```
 
 ### Demo
@@ -254,3 +254,5 @@ nginx1-b86d6f76c-bg4hl        1/1     Running   0          40s   10.244.2.93   m
 nginx2-d678b7967-9jrb5        1/1     Running   0          18s   10.244.2.94   mynode-2   <none>           <none>
 redis1-54fcc8f949-5ss5k       1/1     Running   0          32s   10.244.1.85   mynode-1   <none>           <none>
 ```
+
+The order of the deployments here is `nginx1`, `redis1`, `nginx2`, and `memcached1`. The instance of `nginx1` could be deployed any nodes since initially both nodes are empty. In this scenario, `nginx1` has been deployed to `mynode-2`. When deploying `redis1`, the scheduler will choose `mynode-1` as this will minimize the ExS score. Similarly for deploying `nginx2`, selecting `mynode-2` will result in lower ExS score as opposed to selecting `mynode-1`. Finally for `memcached1` will be placed to `mynode-1` due to the fact that `redis1` and `memcached1` have similar system call profile. Hence, placing together in a node will result in lower ExS score.

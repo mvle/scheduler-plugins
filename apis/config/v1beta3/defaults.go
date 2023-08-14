@@ -98,10 +98,10 @@ var (
 	DefaultNetworkTopologyName = "nt-default"
 
 	// Defaults for SySched
-	// DefaultSySchedCRDNamespace is the default namesapce for full and weighted syscall CRDs used by SySched plugin
-	DefaultSySchedCRDNamespace = "default"
-	// DefaultSySchedFullCRDName contains the full syscall CRD name to be used by SySched plugin
-	DefaultSySchedFullCRDName = "all-syscalls"
+	// DefaultSySchedProfileNamespace is the namesapce of the default syscall profile CR for SySched plugin
+	DefaultSySchedProfileNamespace = "default"
+	// DefaultSySchedProfileName is the name of the default syscall profile CR for SySched plugin
+	DefaultSySchedProfileName = "all-syscalls"
 )
 
 // SetDefaults_CoschedulingArgs sets the default parameters for Coscheduling plugin.
@@ -242,11 +242,11 @@ func SetDefaults_NetworkOverheadArgs(obj *NetworkOverheadArgs) {
 
 // SetDefaults_SySchedArgs sets the default parameters for SySchedArgs plugin.
 func SetDefaults_SySchedArgs(obj *SySchedArgs) {
-	if obj.SySchedCRDNamespace == nil {
-		obj.SySchedCRDNamespace = &DefaultSySchedCRDNamespace
+	if obj.DefaultProfileNamespace == nil {
+		obj.DefaultProfileNamespace = &DefaultSySchedProfileNamespace
 	}
 
-	if obj.SySchedFullCRDName == nil {
-		obj.SySchedFullCRDName = &DefaultSySchedFullCRDName
+	if obj.DefaultProfileName == nil {
+		obj.DefaultProfileName = &DefaultSySchedProfileName
 	}
 }

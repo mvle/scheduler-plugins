@@ -57,11 +57,11 @@ func main() {
 		app.WithPlugin(preemptiontoleration.Name, preemptiontoleration.New),
 		app.WithPlugin(targetloadpacking.Name, targetloadpacking.New),
 		app.WithPlugin(lowriskovercommitment.Name, lowriskovercommitment.New),
+		app.WithPlugin(sysched.Name, sysched.New),
 		// Sample plugins below.
 		// app.WithPlugin(crossnodepreemption.Name, crossnodepreemption.New),
 		app.WithPlugin(podstate.Name, podstate.New),
 		app.WithPlugin(qos.Name, qos.New),
-		app.WithPlugin(sysched.Name, sysched.New),
 	)
 
 	code := cli.Run(command)
