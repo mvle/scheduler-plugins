@@ -508,7 +508,7 @@ func TestPodDeleted(t *testing.T) {
 func TestGetArgs(t *testing.T) {
 	args := pluginconfig.SySchedArgs{
 		DefaultProfileNamespace: "default",
-		DefaultProfileName:  "x-seccomp.json",
+		DefaultProfileName:      "x-seccomp.json",
 	}
 	retargs, err := getArgs(&args)
 	assert.Nil(t, err)
@@ -528,7 +528,7 @@ func TestNew(t *testing.T) {
 
 	args := pluginconfig.SySchedArgs{
 		DefaultProfileNamespace: "default",
-		DefaultProfileName:  "x-seccomp.json",
+		DefaultProfileName:      "x-seccomp.json",
 	}
 
 	sys, err := New(&args, fr)

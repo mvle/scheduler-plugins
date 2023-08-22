@@ -38,90 +38,90 @@ import (
 	spoclient "sigs.k8s.io/scheduler-plugins/pkg/sysched/clientset/v1alpha1"
 	"sigs.k8s.io/scheduler-plugins/test/util"
 
-	spo "sigs.k8s.io/security-profiles-operator/api/seccompprofile/v1beta1"
 	"k8s.io/client-go/kubernetes/scheme"
+	spo "sigs.k8s.io/security-profiles-operator/api/seccompprofile/v1beta1"
 )
 
 var (
-        fullseccompSPOCR = spo.SeccompProfile{
-                TypeMeta: metav1.TypeMeta{
-                        APIVersion: "security-profiles-operator.x-k8s.io/v1beta1",
-                        Kind:       "SeccompProfile",
-                },
-                ObjectMeta: metav1.ObjectMeta{
-                        Name:      "full-seccomp",
-                        Namespace: "default",
-                },
-                Spec: spo.SeccompProfileSpec{
-                        Architectures: []spo.Arch{"SCMP_ARCH_X86_64"},
-                        DefaultAction: "SCMP_ACT_LOG",
-                        Syscalls: []*spo.Syscall{{
-                                Action: "SCMP_ACT_ALLOW",
-                                Names:  []string{"clone", "socket", "getuid", "setrlimit", "nanosleep", "sendto", "setuid", "getpgrp", "mkdir", "getegid", "getsockname", "clock_gettime", "prctl", "epoll_pwait", "futex", "link", "ftruncate", "access", "gettimeofday", "select", "getsockopt", "mmap", "write", "connect", "capget", "chmod", "arch_prctl", "wait4", "brk", "stat", "getrlimit", "fsync", "chroot", "recvfrom", "newfstatat", "setresgid", "poll", "lstat", "listen", "getpgid", "sigreturn", "setreuid", "setgid", "signaldeliver", "recvmsg", "bind", "close", "setsockopt", "openat", "container", "getpeername", "lseek", "procexit", "uname", "statfs", "utime", "pipe", "getcwd", "chdir", "execve", "rt_sigaction", "set_tid_address", "dup", "ioctl", "munmap", "rename", "kill", "getpid", "alarm", "umask", "setresuid", "exit_group", "fstat", "geteuid", "mprotect", "read", "getppid", "fchown", "capset", "rt_sigprocmask", "accept", "setgroups", "open", "set_robust_list", "fchownat", "unlink", "getdents", "fcntl", "readlink", "getgid", "fchmod"},
-                        },
-                        },
-                },
-        }
+	fullseccompSPOCR = spo.SeccompProfile{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "security-profiles-operator.x-k8s.io/v1beta1",
+			Kind:       "SeccompProfile",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "full-seccomp",
+			Namespace: "default",
+		},
+		Spec: spo.SeccompProfileSpec{
+			Architectures: []spo.Arch{"SCMP_ARCH_X86_64"},
+			DefaultAction: "SCMP_ACT_LOG",
+			Syscalls: []*spo.Syscall{{
+				Action: "SCMP_ACT_ALLOW",
+				Names:  []string{"clone", "socket", "getuid", "setrlimit", "nanosleep", "sendto", "setuid", "getpgrp", "mkdir", "getegid", "getsockname", "clock_gettime", "prctl", "epoll_pwait", "futex", "link", "ftruncate", "access", "gettimeofday", "select", "getsockopt", "mmap", "write", "connect", "capget", "chmod", "arch_prctl", "wait4", "brk", "stat", "getrlimit", "fsync", "chroot", "recvfrom", "newfstatat", "setresgid", "poll", "lstat", "listen", "getpgid", "sigreturn", "setreuid", "setgid", "signaldeliver", "recvmsg", "bind", "close", "setsockopt", "openat", "container", "getpeername", "lseek", "procexit", "uname", "statfs", "utime", "pipe", "getcwd", "chdir", "execve", "rt_sigaction", "set_tid_address", "dup", "ioctl", "munmap", "rename", "kill", "getpid", "alarm", "umask", "setresuid", "exit_group", "fstat", "geteuid", "mprotect", "read", "getppid", "fchown", "capset", "rt_sigprocmask", "accept", "setgroups", "open", "set_robust_list", "fchownat", "unlink", "getdents", "fcntl", "readlink", "getgid", "fchmod"},
+			},
+			},
+		},
+	}
 
 	badSPOCR = spo.SeccompProfile{
-                TypeMeta: metav1.TypeMeta{
-                        APIVersion: "security-profiles-operator.x-k8s.io/v1beta1",
-                        Kind:       "SeccompProfile",
-                },
-                ObjectMeta: metav1.ObjectMeta{
-                        Name:      "bad",
-                        Namespace: "default",
-                },
-                Spec: spo.SeccompProfileSpec{
-                        Architectures: []spo.Arch{"SCMP_ARCH_X86_64"},
-                        DefaultAction: "SCMP_ACT_LOG",
-                        Syscalls: []*spo.Syscall{{
-                                Action: "SCMP_ACT_ALLOW",
-                                Names:  []string{"clone", "socket", "getuid", "setrlimit", "nanosleep", "sendto", "setuid", "getpgrp", "mkdir", "getegid", "getsockname", "clock_gettime", "prctl", "epoll_pwait", "futex", "link", "ftruncate", "access", "gettimeofday", "select", "getsockopt", "mmap", "write", "connect", "capget", "chmod", "arch_prctl", "wait4", "brk", "stat", "getrlimit", "fsync", "chroot", "recvfrom", "newfstatat", "setresgid", "poll", "lstat", "listen", "getpgid", "sigreturn", "setreuid", "setgid", "signaldeliver", "recvmsg", "bind", "close", "setsockopt", "openat", "container", "getpeername", "lseek", "procexit", "uname", "statfs", "utime", "pipe", "getcwd", "chdir", "execve", "rt_sigaction", "set_tid_address", "dup", "ioctl", "munmap", "rename", "kill", "getpid", "alarm"},
-                        },
-                        },
-                },
-        }
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "security-profiles-operator.x-k8s.io/v1beta1",
+			Kind:       "SeccompProfile",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "bad",
+			Namespace: "default",
+		},
+		Spec: spo.SeccompProfileSpec{
+			Architectures: []spo.Arch{"SCMP_ARCH_X86_64"},
+			DefaultAction: "SCMP_ACT_LOG",
+			Syscalls: []*spo.Syscall{{
+				Action: "SCMP_ACT_ALLOW",
+				Names:  []string{"clone", "socket", "getuid", "setrlimit", "nanosleep", "sendto", "setuid", "getpgrp", "mkdir", "getegid", "getsockname", "clock_gettime", "prctl", "epoll_pwait", "futex", "link", "ftruncate", "access", "gettimeofday", "select", "getsockopt", "mmap", "write", "connect", "capget", "chmod", "arch_prctl", "wait4", "brk", "stat", "getrlimit", "fsync", "chroot", "recvfrom", "newfstatat", "setresgid", "poll", "lstat", "listen", "getpgid", "sigreturn", "setreuid", "setgid", "signaldeliver", "recvmsg", "bind", "close", "setsockopt", "openat", "container", "getpeername", "lseek", "procexit", "uname", "statfs", "utime", "pipe", "getcwd", "chdir", "execve", "rt_sigaction", "set_tid_address", "dup", "ioctl", "munmap", "rename", "kill", "getpid", "alarm"},
+			},
+			},
+		},
+	}
 
-        good1SPOCR = spo.SeccompProfile{
-                TypeMeta: metav1.TypeMeta{
-                        APIVersion: "security-profiles-operator.x-k8s.io/v1beta1",
-                        Kind:       "SeccompProfile",
-                },
-                ObjectMeta: metav1.ObjectMeta{
-                        Name:      "good1",
-                        Namespace: "default",
-                },
-                Spec: spo.SeccompProfileSpec{
-                        Architectures: []spo.Arch{"SCMP_ARCH_X86_64"},
-                        DefaultAction: "SCMP_ACT_LOG",
-                        Syscalls: []*spo.Syscall{{
-                                Action: "SCMP_ACT_ALLOW",
-                                Names:  []string{"clone", "socket", "getuid", "setrlimit", "nanosleep", "sendto", "setuid", "getpgrp", "mkdir", "getegid", "getsockname", "clock_gettime", "prctl", "epoll_pwait", "futex", "link", "ftruncate", "access", "gettimeofday", "select", "getsockopt", "mmap", "write", "connect", "capget", "chmod", "arch_prctl", "wait4", "brk"},
-                        },
-                        },
-                },
-        }
+	good1SPOCR = spo.SeccompProfile{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "security-profiles-operator.x-k8s.io/v1beta1",
+			Kind:       "SeccompProfile",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "good1",
+			Namespace: "default",
+		},
+		Spec: spo.SeccompProfileSpec{
+			Architectures: []spo.Arch{"SCMP_ARCH_X86_64"},
+			DefaultAction: "SCMP_ACT_LOG",
+			Syscalls: []*spo.Syscall{{
+				Action: "SCMP_ACT_ALLOW",
+				Names:  []string{"clone", "socket", "getuid", "setrlimit", "nanosleep", "sendto", "setuid", "getpgrp", "mkdir", "getegid", "getsockname", "clock_gettime", "prctl", "epoll_pwait", "futex", "link", "ftruncate", "access", "gettimeofday", "select", "getsockopt", "mmap", "write", "connect", "capget", "chmod", "arch_prctl", "wait4", "brk"},
+			},
+			},
+		},
+	}
 
-        good2SPOCR = spo.SeccompProfile{
-                TypeMeta: metav1.TypeMeta{
-                        APIVersion: "security-profiles-operator.x-k8s.io/v1beta1",
-                        Kind:       "SeccompProfile",
-                },
-                ObjectMeta: metav1.ObjectMeta{
-                        Name:      "good2",
-                        Namespace: "default",
-                },
-                Spec: spo.SeccompProfileSpec{
-                        Architectures: []spo.Arch{"SCMP_ARCH_X86_64"},
-                        DefaultAction: "SCMP_ACT_LOG",
-                        Syscalls: []*spo.Syscall{{
-                                Action: "SCMP_ACT_ALLOW",
-                                Names:  []string{"clone", "socket", "getuid", "setrlimit", "nanosleep", "sendto", "setuid", "getpgrp", "mkdir", "getegid", "getsockname", "clock_gettime", "prctl", "epoll_pwait", "futex", "link", "ftruncate", "access", "gettimeofday", "select", "getsockopt", "mmap", "write", "connect", "capget", "chmod", "arch_prctl", "wait4", "brk", "stat", "getrlimit"},
-                        },
-                        },
-                },
-        }
+	good2SPOCR = spo.SeccompProfile{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "security-profiles-operator.x-k8s.io/v1beta1",
+			Kind:       "SeccompProfile",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "good2",
+			Namespace: "default",
+		},
+		Spec: spo.SeccompProfileSpec{
+			Architectures: []spo.Arch{"SCMP_ARCH_X86_64"},
+			DefaultAction: "SCMP_ACT_LOG",
+			Syscalls: []*spo.Syscall{{
+				Action: "SCMP_ACT_ALLOW",
+				Names:  []string{"clone", "socket", "getuid", "setrlimit", "nanosleep", "sendto", "setuid", "getpgrp", "mkdir", "getegid", "getsockname", "clock_gettime", "prctl", "epoll_pwait", "futex", "link", "ftruncate", "access", "gettimeofday", "select", "getsockopt", "mmap", "write", "connect", "capget", "chmod", "arch_prctl", "wait4", "brk", "stat", "getrlimit"},
+			},
+			},
+		},
+	}
 )
 
 func SPOCreate(client *spoclient.SPOV1Alpha1Client, profile *spo.SeccompProfile, opts metav1.CreateOptions) (*spo.SeccompProfile, error) {
@@ -160,9 +160,9 @@ func TestSyschedPlugin(t *testing.T) {
 
 	spo.AddToScheme(scheme.Scheme)
 	extClient, err := spoclient.NewForConfig(globalKubeConfig)
-        if err != nil {
-                t.Fatal(err)
-        }
+	if err != nil {
+		t.Fatal(err)
+	}
 	testCtx.ClientSet = cs
 	testCtx.KubeConfig = globalKubeConfig
 
@@ -184,39 +184,39 @@ func TestSyschedPlugin(t *testing.T) {
 
 	// Create the Seccomp Profile CRs
 	_, err = SPOCreate(extClient, &fullseccompSPOCR, metav1.CreateOptions{})
-        if err != nil {
-                t.Fatal(err)
-        }
+	if err != nil {
+		t.Fatal(err)
+	}
 	_, err = SPOCreate(extClient, &badSPOCR, metav1.CreateOptions{})
-        if err != nil {
-                t.Fatal(err)
-        }
+	if err != nil {
+		t.Fatal(err)
+	}
 	_, err = SPOCreate(extClient, &good1SPOCR, metav1.CreateOptions{})
-        if err != nil {
-                t.Fatal(err)
-        }
+	if err != nil {
+		t.Fatal(err)
+	}
 	_, err = SPOCreate(extClient, &good2SPOCR, metav1.CreateOptions{})
-        if err != nil {
-                t.Fatal(err)
-        }
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	cfg, err := util.NewDefaultSchedulerComponentConfig()
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg.Profiles[0].Plugins.Score = schedapi.PluginSet{
-		Enabled:  []schedapi.Plugin{{Name: sysched.Name}},
+		Enabled: []schedapi.Plugin{{Name: sysched.Name}},
 		//Disabled: []schedapi.Plugin{{Name: "*"}},
 	}
 	cfg.Profiles[0].Plugins.Bind = schedapi.PluginSet{
-		Enabled:  []schedapi.Plugin{{Name: "DefaultBinder"}},
+		Enabled: []schedapi.Plugin{{Name: "DefaultBinder"}},
 		//Disabled: []schedapi.Plugin{{Name: "*"}},
 	}
 	cfg.Profiles[0].PluginConfig = append(cfg.Profiles[0].PluginConfig, schedapi.PluginConfig{
 		Name: sysched.Name,
 		Args: &schedconfig.SySchedArgs{
 			DefaultProfileNamespace: "default",
-			DefaultProfileName: "full-seccomp",
+			DefaultProfileName:      "full-seccomp",
 		},
 	})
 
@@ -240,10 +240,10 @@ func TestSyschedPlugin(t *testing.T) {
 		//node.Spec.PodCIDR = "192.168.0.1/24"
 		node.Status.Addresses = make([]v1.NodeAddress, 1)
 		ip := fmt.Sprintf("192.168.1.%v", 1+i)
-		node.Status.Addresses[0] = v1.NodeAddress {
-				Type: v1.NodeInternalIP,
-				Address: ip,
-			}
+		node.Status.Addresses[0] = v1.NodeAddress{
+			Type:    v1.NodeInternalIP,
+			Address: ip,
+		}
 		node, err = cs.CoreV1().Nodes().Create(testCtx.Ctx, node, metav1.CreateOptions{})
 		if err != nil {
 			t.Fatalf("Failed to create Node %q: %v", nodeName, err)
@@ -259,21 +259,21 @@ func TestSyschedPlugin(t *testing.T) {
 		pods = append(pods, pod)
 	}
 	// Make pods[0] bad.
-        badseccomp := "security-profiles-operator.x-k8s.io/default/bad.json"
+	badseccomp := "security-profiles-operator.x-k8s.io/default/bad.json"
 	pods[0].Spec.SecurityContext = &v1.PodSecurityContext{}
 	pods[0].Spec.SecurityContext.SeccompProfile = &v1.SeccompProfile{
-		Type: "Localhost",
+		Type:             "Localhost",
 		LocalhostProfile: &badseccomp,
 	}
 	// Make pods[1] good1.
 	good1seccomp := "security-profiles-operator.x-k8s.io/default/good1.json"
 	pods[1].Spec.SecurityContext = &v1.PodSecurityContext{}
 	pods[1].Spec.SecurityContext.SeccompProfile = &v1.SeccompProfile{
-		Type: "Localhost",
+		Type:             "Localhost",
 		LocalhostProfile: &good1seccomp,
 	}
 	// Make pods[2] good2.
-	pods[2].ObjectMeta.Annotations = map[string]string {
+	pods[2].ObjectMeta.Annotations = map[string]string{
 		"seccomp.security.alpha.kubernetes.io": "security-profiles-operator.x-k8s.io/default/good2.json",
 	}
 
@@ -327,7 +327,7 @@ func TestSyschedPlugin(t *testing.T) {
 			t.Fatalf("Failed to get Pod %q: %v", pods[i].Name, err)
 		}
 	}
-	if (pods[0].Spec.NodeName == pods[1].Spec.NodeName || pods[0].Spec.NodeName == pods[2].Spec.NodeName || pods[1].Spec.NodeName != pods[2].Spec.NodeName) {
+	if pods[0].Spec.NodeName == pods[1].Spec.NodeName || pods[0].Spec.NodeName == pods[2].Spec.NodeName || pods[1].Spec.NodeName != pods[2].Spec.NodeName {
 		t.Fatalf("Incorrect pod placement")
-        }
+	}
 }
