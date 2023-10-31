@@ -183,21 +183,11 @@ func TestSyschedPlugin(t *testing.T) {
 	}
 
 	// Create the Seccomp Profile CRs
-	_, err = SPOCreate(extClient, &fullseccompSPOCR, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = SPOCreate(extClient, &badSPOCR, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = SPOCreate(extClient, &good1SPOCR, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = SPOCreate(extClient, &good2SPOCR, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatal(err)
+	for _, spocr := range []*spo.SeccompProfile{&fullseccompSPOCR, &badSPOCR, &good1SPOCR, &good2SPOCR} {
+		_, err = SPOCreate(extClient, spocr, metav1.CreateOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	cfg, err := util.NewDefaultSchedulerComponentConfig()
@@ -206,11 +196,11 @@ func TestSyschedPlugin(t *testing.T) {
 	}
 	cfg.Profiles[0].Plugins.Score = schedapi.PluginSet{
 		Enabled: []schedapi.Plugin{{Name: sysched.Name}},
-		//Disabled: []schedapi.Plugin{{Name: "*"}},
+		Disabled: []schedapi.Plugin{{Name: "*"}},
 	}
 	cfg.Profiles[0].Plugins.Bind = schedapi.PluginSet{
 		Enabled: []schedapi.Plugin{{Name: "DefaultBinder"}},
-		//Disabled: []schedapi.Plugin{{Name: "*"}},
+		Disabled: []schedapi.Plugin{{Name: "*"}},
 	}
 	cfg.Profiles[0].PluginConfig = append(cfg.Profiles[0].PluginConfig, schedapi.PluginConfig{
 		Name: sysched.Name,
