@@ -192,7 +192,7 @@ func (sc *SySched) getSyscalls(pod *v1.Pod) sets.Set[string] {
 
 	// if a pod does not have a seccomp profile specified, return the set of all syscalls
 	if len(r) == 0 {
-		ns, name := parseNameNS(sc.DefaultProfileNamespace + "/" + sc.DefaultProfileName)
+		syscalls, err := sc.readSPOProfileCR(sc.DefaultProfileName, sc.DefaultProfileNamespace)
 		syscalls, err := sc.readSPOProfileCR(name, ns)
 		if err != nil {
 			klog.ErrorS(err, "Failed to read the CR of all syscalls")
