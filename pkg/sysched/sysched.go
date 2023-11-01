@@ -10,8 +10,8 @@ import (
 	"github.com/containers/common/pkg/seccomp"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
@@ -24,15 +24,15 @@ import (
 )
 
 type SySched struct {
-	handle                  framework.Handle
-	clientSet               v1alpha1.SPOV1Alpha1Interface
-        // Maintain state of what pods on each node
-        // Cached state from SharedLister does not hold system wide info of pods
-        // scheduled by other schedulers
-	HostToPods              map[string][]*v1.Pod
+	handle    framework.Handle
+	clientSet v1alpha1.SPOV1Alpha1Interface
+	// Maintain state of what pods on each node
+	// Cached state from SharedLister does not hold system wide info of pods
+	// scheduled by other schedulers
+	HostToPods map[string][]*v1.Pod
 	// Key: node name
 	// Value: set of system call names
-	HostSyscalls            map[string]sets.Set[string]
+	HostSyscalls map[string]sets.Set[string]
 	// NOTE: not used at this time
 	// Key: category of critical system call, e.g., CVE based, admin policy, etc.
 	// Value: list of system calls
@@ -65,7 +65,7 @@ func remove(s []*v1.Pod, i int) []*v1.Pod {
 // profile path with the following formats
 // e.g., localhost/operator/<namespace>/<filename>.json OR
 // e.g., operator/<namespace>/<filename>.json
-//func getCRDandNamespace(localhostProfile string) (string, string) {
+// func getCRDandNamespace(localhostProfile string) (string, string) {
 func parseNameNS(profilePath string) (string, string) {
 	if profilePath == "" {
 		return "", ""
@@ -192,7 +192,7 @@ func (sc *SySched) getSyscalls(pod *v1.Pod) sets.Set[string] {
 
 	// if a pod does not have a seccomp profile specified, return the set of all syscalls
 	if len(r) == 0 {
-		ns, name := parseNameNS(sc.DefaultProfileNamespace+"/"+sc.DefaultProfileName)
+		ns, name := parseNameNS(sc.DefaultProfileNamespace + "/" + sc.DefaultProfileName)
 		syscalls, err := sc.readSPOProfileCR(name, ns)
 		if err != nil {
 			klog.ErrorS(err, "Failed to read the CR of all syscalls")
@@ -228,8 +228,8 @@ func (sc *SySched) calcScore(syscalls sets.Set[string]) int {
 
 // Score invoked at the score extension point.
 func (sc *SySched) Score(ctx context.Context, cs *framework.CycleState, pod *v1.Pod, nodeName string) (int64, *framework.Status) {
-        // Read directly from API server because cached state in SnapSharedLister not always up-to-date 
-        // especially during intial scheduler start.
+	// Read directly from API server because cached state in SnapSharedLister not always up-to-date
+	// especially during intial scheduler start.
 	node, err := sc.handle.ClientSet().CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
 	if err != nil {
 		return 0, nil
@@ -359,22 +359,21 @@ func (sc *SySched) removePod(pod *v1.Pod) {
 	return
 }
 
-
 func (sc *SySched) podAdded(obj interface{}) {
 	pod := obj.(*v1.Pod)
 
-        // Add already running pod to map
-        // This is for when our scheduler comes up after other pods 
-        if (pod.Status.Phase == v1.PodRunning) {
+	// Add already running pod to map
+	// This is for when our scheduler comes up after other pods
+	if pod.Status.Phase == v1.PodRunning {
 		klog.V(10).Infof("POD ADDED: %s/%s phase: %s", pod.Namespace, pod.Name, pod.Status.Phase)
-                sc.addPod(pod)
-        }
+		sc.addPod(pod)
+	}
 }
 
 func (sc *SySched) podUpdated(old, new interface{}) {
 	pod := old.(*v1.Pod)
 
-        // Pod has been assigned to node, now can add to our map
+	// Pod has been assigned to node, now can add to our map
 	if pod.Status.Phase == v1.PodPending && pod.Status.HostIP != "" {
 		klog.V(10).Infof("POD UPDATED. %s/%s", pod.Namespace, pod.Name)
 		sc.addPod(pod)
