@@ -15,6 +15,7 @@ import (
 	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/queuesort"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/apimachinery/pkg/util/sets"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	frameworkruntime "k8s.io/kubernetes/pkg/scheduler/framework/runtime"
@@ -23,7 +24,6 @@ import (
 	clientsetfake "k8s.io/client-go/kubernetes/fake"
 	restclient "k8s.io/client-go/rest"
 	restfake "k8s.io/client-go/rest/fake"
-
 	"sigs.k8s.io/security-profiles-operator/api/seccompprofile/v1beta1"
 
 	pluginconfig "sigs.k8s.io/scheduler-plugins/apis/config"
@@ -86,7 +86,7 @@ var (
                         DefaultAction: "SCMP_ACT_LOG",
                         Syscalls: []*v1beta1.Syscall{{
                                 Action: "SCMP_ACT_ALLOW",
-                                Names:  []string{"clone", "socket", "getuid", "setrlimit", "nanosleep", "sendto", "setuid", "getpgrp", "mkdir", "getegid", "getsockname", "clock_gettime", "prctl", "epoll_pwait", "futex", "link", "ftruncate", "access", "gettimeofday", "select", "getsockopt", "mmap", "write", "connect", "capget", "chmod", "arch_prctl", "wait4", "brk", "stat", "getrlimit", "fsync", "chroot", "recvfrom", "newfstatat", "setresgid", "poll", "lstat", "listen", "getpgid", "sigreturn", "setreuid", "setgid", "signaldeliver", "recvmsg", "bind", "close", "setsockopt", "openat", "container", "getpeername", "lseek", "procexit", "uname", "statfs", "utime", "pipe", "getcwd", "chdir", "execve", "rt_sigaction", "set_tid_address", "dup", "ioctl", "munmap", "rename", "kill", "getpid", "alarm", "umask", "setresuid", "exit_group", "fstat", "geteuid", "mprotect", "read", "getppid", "fchown", "capset", "rt_sigprocmask", "accept", "setgroups", "open", "set_robust_list", "fchownat", "unlink", "getdents", "fcntl", "readlink", "getgid", "dup3", "pivot_root", "_sysctl", "prctl", "arch_prctl", "adjtimex", "setrlimit", "chroot", "sync", "acct", "settimeofday"},
+                                Names:  []string{"clone", "socket", "getuid", "setrlimit", "nanosleep", "sendto", "setuid", "getpgrp", "mkdir", "getegid", "getsockname", "clock_gettime", "prctl", "epoll_pwait", "futex", "link", "ftruncate", "access", "gettimeofday", "select", "getsockopt", "mmap", "write", "connect", "capget", "chmod", "arch_prctl", "wait4", "brk", "stat", "getrlimit", "fsync", "chroot", "recvfrom", "newfstatat", "setresgid", "poll", "lstat", "listen", "getpgid", "sigreturn", "setreuid", "setgid", "signaldeliver", "recvmsg", "bind", "close", "setsockopt", "openat", "container", "getpeername", "lseek", "procexit", "uname", "statfs", "utime", "pipe", "getcwd", "chdir", "execve", "rt_sigaction", "set_tid_address", "dup", "ioctl", "munmap", "rename", "kill", "getpid", "alarm", "umask", "setresuid", "exit_group", "fstat", "geteuid", "mprotect", "read", "getppid", "fchown", "capset", "rt_sigprocmask", "accept", "setgroups", "open", "set_robust_list", "fchownat", "unlink", "getdents", "fcntl", "readlink", "getgid", "dup3", "pivot_root", "_sysctl", "adjtimex", "sync", "acct", "settimeofday", "statx", "pkey_free", "pkey_alloc", "pkey_mprotect"},
                         },
                         },
                 },
@@ -122,72 +122,14 @@ var (
 	}
 )
 
-func contains(s []string, str string) bool {
+/*func contains(s []string, str string) bool {
 	for _, v := range s {
 		if v == str {
 			return true
 		}
 	}
 	return false
-}
-
-func TestSetSubtract(t *testing.T) {
-	hostsyscalls := make(map[string]bool)
-	hostsyscalls["syscall1"] = true
-	hostsyscalls["syscall2"] = true
-	hostsyscalls["syscall3"] = true
-	hostsyscalls["syscall4"] = true
-	hostsyscalls["syscall5"] = true
-
-	podsyscalls := []string{"syscall5", "syscall4"}
-
-	s := setSubtract(hostsyscalls, podsyscalls)
-
-	if len(s) != 3 {
-		t.Errorf("Incorrect size")
-	}
-	if contains(s, "syscall1") == false {
-		t.Errorf("Missing syscall1")
-	}
-	if contains(s, "syscall2") == false {
-		t.Errorf("Missing syscall2")
-	}
-	if contains(s, "syscall3") == false {
-		t.Errorf("Missing syscall3")
-	}
-	if contains(s, "syscall4") == true {
-		t.Errorf("syscall4 not removed")
-	}
-	if contains(s, "syscall5") == true {
-		t.Errorf("syscall3 not removed")
-	}
-}
-
-func TestUnion(t *testing.T) {
-	hostsyscalls := make(map[string]bool)
-	hostsyscalls["syscall1"] = true
-	hostsyscalls["syscall2"] = true
-	hostsyscalls["syscall3"] = true
-
-	podsyscalls := []string{"syscall4", "syscall5"}
-	union(hostsyscalls, podsyscalls)
-
-	if len(hostsyscalls) != 5 {
-		t.Errorf("Incorrect size")
-	}
-	expected := make(map[string]bool)
-	expected["syscall1"] = true
-	expected["syscall2"] = true
-	expected["syscall3"] = true
-	expected["syscall4"] = true
-	expected["syscall5"] = true
-
-	for k := range expected {
-		if _, ok := hostsyscalls[k]; !ok {
-			t.Errorf("missing element")
-		}
-	}
-}
+}*/
 
 func TestRemove(t *testing.T) {
         tests := []struct {
@@ -240,16 +182,7 @@ func TestRemove(t *testing.T) {
 	}
 }
 
-func TestUnionList(t *testing.T) {
-	s := []string{"test", "test1"}
-	s1 := []string{"test1", "test2"}
-	s2 := unionList(s, s1)
-	if len(s2) != 3 {
-		t.Errorf("lenght incorrect")
-	}
-}
-
-func TestGetCRDNamespace(t *testing.T) {
+func TestParseNameNS(t *testing.T) {
 	tests := []struct {
 		name		string
                 s		string
@@ -265,12 +198,12 @@ func TestGetCRDNamespace(t *testing.T) {
         }
         for _, tt := range tests {
                 t.Run(tt.name, func(t *testing.T) {
-	                ns, crd_name := getCRDandNamespace(tt.s)
+	                ns, name := parseNameNS(tt.s)
                         if ns != tt.expectedNS {
                                 t.Errorf("incorrect namespace")
                         }
-			if crd_name != tt.expectedName {
-				t.Errorf("incorrect crd name")
+			if name != tt.expectedName {
+				t.Errorf("incorrect name")
 			}
 		})
         }
@@ -289,7 +222,7 @@ func mockSysched() (*SySched, error) {
 
 	sys := SySched{handle: fr, clientSet: &spoclient}
 	sys.HostToPods = make(map[string][]*v1.Pod)
-	sys.HostSyscalls = make(map[string]map[string]bool)
+	sys.HostSyscalls = make(map[string]sets.Set[string])
 	sys.ExSAvg = 0
 	sys.ExSAvgCount = 1
 	sys.DefaultProfileName = "full-seccomp.json"
@@ -298,7 +231,7 @@ func mockSysched() (*SySched, error) {
 	return &sys, err
 }
 
-func TestReadSPOProfileCRD(t *testing.T) {
+func TestReadSPOProfileCR(t *testing.T) {
         tests := []struct {
 		name		string
 		ns		string
@@ -322,7 +255,7 @@ func TestReadSPOProfileCRD(t *testing.T) {
 	sys, _ := mockSysched()
         for _, tt := range tests {
                 t.Run(tt.name, func(t *testing.T) {
-	            syscalls, err := sys.readSPOProfileCRD(tt.profilename, tt.ns)
+	            syscalls, err := sys.readSPOProfileCR(tt.profilename, tt.ns)
 	            assert.Nil(t, err)
 	            assert.NotNil(t, syscalls)
 	            assert.EqualValues(t, len(syscalls), len(tt.expected))
@@ -401,7 +334,7 @@ func TestGetSyscalls(t *testing.T) {
                 t.Run(tt.name, func(t *testing.T) {
 			syscalls := sys.getSyscalls(tt.pod)
 			assert.NotNil(t, syscalls)
-			assert.EqualValues(t, len(syscalls), tt.expected)
+			assert.EqualValues(t, syscalls.Len(), tt.expected)
 		})
 	}
 }
@@ -410,12 +343,12 @@ func TestCalcScore(t *testing.T) {
 	sys, _ := mockSysched()
         tests := []struct {
                 name		string
-                syscalls	[]string
+                syscalls	sets.Set[string]
                 expected	int
         }{
                 {
 			name : "Calculate exs score",
-			syscalls : spoResponse.Spec.Syscalls[0].Names,
+			syscalls : sets.New[string](spoResponse.Spec.Syscalls[0].Names...),
 			expected : len(spoResponse.Spec.Syscalls[0].Names),
 		},
 	}
@@ -448,7 +381,7 @@ func TestScore(t *testing.T) {
 
 	sys := SySched{handle: fr, clientSet: &spoclient}
 	sys.HostToPods = make(map[string][]*v1.Pod)
-	sys.HostSyscalls = make(map[string]map[string]bool)
+	sys.HostSyscalls = make(map[string]sets.Set[string])
 	sys.ExSAvg = 0
 	sys.ExSAvgCount = 0
 	sys.addPod(pod)
@@ -545,7 +478,7 @@ func TestGetHostSyscalls(t *testing.T) {
                                                 "localhost/operator/default/full-seccomp.json").Node("test1").Obj(),
 				},
 			nodeName: "test",
-			expected: len(unionList(spoResponse.Spec.Syscalls[0].Names, spoResponse1.Spec.Syscalls[0].Names)),
+			expected: sets.New[string](spoResponse.Spec.Syscalls[0].Names...).Union(sets.New[string](spoResponse1.Spec.Syscalls[0].Names...)).Len(),
 		},
 	}
 
@@ -561,7 +494,7 @@ func TestGetHostSyscalls(t *testing.T) {
 
 			sys := SySched{handle: fr, clientSet: &spoclient}
 			sys.HostToPods = make(map[string][]*v1.Pod)
-			sys.HostSyscalls = make(map[string]map[string]bool)
+			sys.HostSyscalls = make(map[string]sets.Set[string])
 			sys.ExSAvg = 0
 			sys.ExSAvgCount = 0
 
@@ -599,7 +532,7 @@ func TestUpdateHostSyscalls(t *testing.T) {
 					st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
 						"localhost/operator/default/x-seccomp.json").Node("test").Obj(),
 					},
-			expected: len(unionList(spoResponse.Spec.Syscalls[0].Names, spoResponse1.Spec.Syscalls[0].Names)),
+			expected: sets.New[string](spoResponse.Spec.Syscalls[0].Names...).Union(sets.New[string](spoResponse1.Spec.Syscalls[0].Names...)).Len(),
 		},
 	}
 
@@ -620,7 +553,7 @@ func TestUpdateHostSyscalls(t *testing.T) {
 			sys := SySched{handle: fr, clientSet: &spoclient}
 
 			sys.HostToPods = make(map[string][]*v1.Pod)
-			sys.HostSyscalls = make(map[string]map[string]bool)
+			sys.HostSyscalls = make(map[string]sets.Set[string])
 			sys.ExSAvg = 0
 			sys.ExSAvgCount = 0
 
@@ -683,7 +616,7 @@ func TestRecomputeHostSyscalls(t *testing.T) {
 				st.MakePod().Annotation("seccomp.security.alpha.kubernetes.io",
                                         "localhost/operator/default/x-seccomp.json").Node("test").Obj(),
                                 },
-			expected: len(unionList(spoResponse.Spec.Syscalls[0].Names, spoResponse1.Spec.Syscalls[0].Names)),
+			expected: sets.New[string](spoResponse.Spec.Syscalls[0].Names...).Union(sets.New[string](spoResponse1.Spec.Syscalls[0].Names...)).Len(),
 		},
 	}
 
@@ -755,7 +688,7 @@ func TestPodUpdated(t *testing.T) {
                                         "localhost/operator/default/x-seccomp.json").Phase(v1.PodPending).Node("test").Obj(),
                                 },
                         expectedPodNum: 2,
-                        expected: len(unionList(spoResponse.Spec.Syscalls[0].Names, spoResponse1.Spec.Syscalls[0].Names)),
+			expected: sets.New[string](spoResponse.Spec.Syscalls[0].Names...).Union(sets.New[string](spoResponse1.Spec.Syscalls[0].Names...)).Len(),
                 },
         }
 

@@ -32,14 +32,13 @@ import (
 	fwkruntime "k8s.io/kubernetes/pkg/scheduler/framework/runtime"
 	st "k8s.io/kubernetes/pkg/scheduler/testing"
 	imageutils "k8s.io/kubernetes/test/utils/image"
-	schedconfig "sigs.k8s.io/scheduler-plugins/apis/config"
+	"k8s.io/client-go/kubernetes/scheme"
+	spo "sigs.k8s.io/security-profiles-operator/api/seccompprofile/v1beta1"
 
+	schedconfig "sigs.k8s.io/scheduler-plugins/apis/config"
 	"sigs.k8s.io/scheduler-plugins/pkg/sysched"
 	spoclient "sigs.k8s.io/scheduler-plugins/pkg/sysched/clientset/v1alpha1"
 	"sigs.k8s.io/scheduler-plugins/test/util"
-
-	"k8s.io/client-go/kubernetes/scheme"
-	spo "sigs.k8s.io/security-profiles-operator/api/seccompprofile/v1beta1"
 )
 
 var (
