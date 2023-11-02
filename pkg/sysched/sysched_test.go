@@ -224,7 +224,7 @@ func mockSysched() (*SySched, error) {
 	sys.HostSyscalls = make(map[string]sets.Set[string])
 	sys.ExSAvg = 0
 	sys.ExSAvgCount = 1
-	sys.DefaultProfileName = "full-seccomp.json"
+	sys.DefaultProfileName = "full-seccomp"
 	sys.DefaultProfileNamespace = "default"
 
 	return &sys, err
