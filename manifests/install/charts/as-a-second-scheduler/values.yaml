@@ -34,5 +34,5 @@ pluginConfig:
 #       type: MostAllocated # default is LeastAllocated
 - name: SySched
   args:
-    syschedCRDNamespace: "default"
-    syschedFullCRDName: "all-syscalls"
+    defaultProfileNamespace: "default"
+    defaultProfileName: "full-seccomp"

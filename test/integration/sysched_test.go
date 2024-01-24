@@ -27,19 +27,18 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/kubernetes/pkg/scheduler"
 	schedapi "k8s.io/kubernetes/pkg/scheduler/apis/config"
 	fwkruntime "k8s.io/kubernetes/pkg/scheduler/framework/runtime"
 	st "k8s.io/kubernetes/pkg/scheduler/testing"
 	imageutils "k8s.io/kubernetes/test/utils/image"
-	schedconfig "sigs.k8s.io/scheduler-plugins/apis/config"
+	spo "sigs.k8s.io/security-profiles-operator/api/seccompprofile/v1beta1"
 
+	schedconfig "sigs.k8s.io/scheduler-plugins/apis/config"
 	"sigs.k8s.io/scheduler-plugins/pkg/sysched"
 	spoclient "sigs.k8s.io/scheduler-plugins/pkg/sysched/clientset/v1alpha1"
 	"sigs.k8s.io/scheduler-plugins/test/util"
-
-	"k8s.io/client-go/kubernetes/scheme"
-	spo "sigs.k8s.io/security-profiles-operator/api/seccompprofile/v1beta1"
 )
 
 var (
@@ -183,21 +182,11 @@ func TestSyschedPlugin(t *testing.T) {
 	}
 
 	// Create the Seccomp Profile CRs
-	_, err = SPOCreate(extClient, &fullseccompSPOCR, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = SPOCreate(extClient, &badSPOCR, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = SPOCreate(extClient, &good1SPOCR, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = SPOCreate(extClient, &good2SPOCR, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatal(err)
+	for _, spocr := range []*spo.SeccompProfile{&fullseccompSPOCR, &badSPOCR, &good1SPOCR, &good2SPOCR} {
+		_, err = SPOCreate(extClient, spocr, metav1.CreateOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	cfg, err := util.NewDefaultSchedulerComponentConfig()
@@ -205,12 +194,12 @@ func TestSyschedPlugin(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg.Profiles[0].Plugins.Score = schedapi.PluginSet{
-		Enabled: []schedapi.Plugin{{Name: sysched.Name}},
-		//Disabled: []schedapi.Plugin{{Name: "*"}},
+		Enabled:  []schedapi.Plugin{{Name: sysched.Name}},
+		Disabled: []schedapi.Plugin{{Name: "*"}},
 	}
 	cfg.Profiles[0].Plugins.Bind = schedapi.PluginSet{
-		Enabled: []schedapi.Plugin{{Name: "DefaultBinder"}},
-		//Disabled: []schedapi.Plugin{{Name: "*"}},
+		Enabled:  []schedapi.Plugin{{Name: "DefaultBinder"}},
+		Disabled: []schedapi.Plugin{{Name: "*"}},
 	}
 	cfg.Profiles[0].PluginConfig = append(cfg.Profiles[0].PluginConfig, schedapi.PluginConfig{
 		Name: sysched.Name,

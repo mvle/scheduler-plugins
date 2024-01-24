@@ -15,4 +15,4 @@ profiles:
     - name: SySched
       args:
         defaultProfileNamespace: "default"
-        defaultProfileName: "all-syscalls"
+        defaultProfileName: "full-seccomp"
