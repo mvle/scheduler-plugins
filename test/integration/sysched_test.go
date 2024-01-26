@@ -193,12 +193,12 @@ func TestSyschedPlugin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+        // Work around https://github.com/kubernetes/kubernetes/issues/121630.
+        cfg.Profiles[0].Plugins.PreScore = schedapi.PluginSet{
+                Disabled: []schedapi.Plugin{{Name: "*"}},
+        }
 	cfg.Profiles[0].Plugins.Score = schedapi.PluginSet{
 		Enabled:  []schedapi.Plugin{{Name: sysched.Name}},
-		Disabled: []schedapi.Plugin{{Name: "*"}},
-	}
-	cfg.Profiles[0].Plugins.Bind = schedapi.PluginSet{
-		Enabled:  []schedapi.Plugin{{Name: "DefaultBinder"}},
 		Disabled: []schedapi.Plugin{{Name: "*"}},
 	}
 	cfg.Profiles[0].PluginConfig = append(cfg.Profiles[0].PluginConfig, schedapi.PluginConfig{
@@ -209,6 +209,9 @@ func TestSyschedPlugin(t *testing.T) {
 		},
 	})
 
+	ns := fmt.Sprintf("integration-test-%v", string(uuid.NewUUID()))
+	createNamespace(t, testCtx, ns)
+
 	testCtx = initTestSchedulerWithOptions(
 		t,
 		testCtx,
@@ -218,9 +221,6 @@ func TestSyschedPlugin(t *testing.T) {
 	syncInformerFactory(testCtx)
 	go testCtx.Scheduler.Run(testCtx.Ctx)
 	defer cleanupTest(t, testCtx)
-
-	ns := fmt.Sprintf("integration-test-%v", string(uuid.NewUUID()))
-	createNamespace(t, testCtx, ns)
 
 	// Create a Node.
 	for i := 0; i < 2; i++ {

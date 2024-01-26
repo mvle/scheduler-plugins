@@ -212,8 +212,9 @@ func mockSysched() (*SySched, error) {
 	v1beta1.AddToScheme(scheme.Scheme)
 
 	//fake out the framework handle
-	ctx := context.Background()
-	fr, err := st.NewFramework(registeredPlugins, Name, ctx.Done(),
+        ctx, cancel := context.WithCancel(context.Background())
+        defer cancel()
+	fr, err := st.NewFramework(ctx, registeredPlugins, Name,
 		frameworkruntime.WithClientSet(clientsetfake.NewSimpleClientset()))
 	if err != nil {
 		return nil, err
@@ -371,8 +372,9 @@ func TestScore(t *testing.T) {
 		"localhost/operator/default/z-seccomp.json").Name("Existing pod").Node("test").Obj()
 
 	//fake out the framework handle
-	ctx := context.Background()
-	fr, err := st.NewFramework(registeredPlugins, Name, ctx.Done(),
+        ctx, cancel := context.WithCancel(context.Background())
+        defer cancel()
+	fr, err := st.NewFramework(ctx, registeredPlugins, Name,
 		frameworkruntime.WithClientSet(clientsetfake.NewSimpleClientset(node.Obj())))
 	if err != nil {
 		t.Error(err)
@@ -484,8 +486,9 @@ func TestGetHostSyscalls(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			//fake out the framework handle
-			ctx := context.Background()
-			fr, err := st.NewFramework(registeredPlugins, Name, ctx.Done(),
+			ctx, cancel := context.WithCancel(context.Background())
+		        defer cancel()
+			fr, err := st.NewFramework(ctx, registeredPlugins, Name,
 				frameworkruntime.WithClientSet(clientsetfake.NewSimpleClientset()))
 			if err != nil {
 				t.Error(err)
@@ -538,12 +541,13 @@ func TestUpdateHostSyscalls(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			//fake out the framework handle
-			ctx := context.Background()
+			ctx, cancel := context.WithCancel(context.Background())
+		        defer cancel()
 			nodeItems := []v1.Node{}
 			for _, node := range tt.nodes {
 				nodeItems = append(nodeItems, *node)
 			}
-			fr, err := st.NewFramework(registeredPlugins, Name, ctx.Done(),
+			fr, err := st.NewFramework(ctx, registeredPlugins, Name,
 				frameworkruntime.WithClientSet(clientsetfake.NewSimpleClientset(&v1.NodeList{Items: nodeItems})))
 			if err != nil {
 				t.Error(err)
@@ -758,9 +762,10 @@ func TestGetArgs(t *testing.T) {
 }
 
 func TestNew(t *testing.T) {
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	fakeclient := clientsetfake.NewSimpleClientset()
-	fr, err := st.NewFramework(registeredPlugins, Name, ctx.Done(),
+	fr, err := st.NewFramework(ctx, registeredPlugins, Name,
 		frameworkruntime.WithInformerFactory(informers.NewSharedInformerFactory(fakeclient, 0)),
 		frameworkruntime.WithKubeConfig(&restclient.Config{}),
 		frameworkruntime.WithClientSet(fakeclient))
