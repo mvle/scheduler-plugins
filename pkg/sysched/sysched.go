@@ -12,7 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/kubernetes/scheme"
+	clientscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/scheduler/framework"
@@ -20,12 +20,14 @@ import (
 	"sigs.k8s.io/security-profiles-operator/api/seccompprofile/v1beta1"
 
 	pluginconfig "sigs.k8s.io/scheduler-plugins/apis/config"
-	"sigs.k8s.io/scheduler-plugins/pkg/sysched/clientset/v1alpha1"
+	"sigs.k8s.io/scheduler-plugins/apis/scheduling/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type SySched struct {
 	handle    framework.Handle
-	clientSet v1alpha1.SPOV1Alpha1Interface
+	//clientSet v1alpha1.SPOV1Alpha1Interface
+	client client.Client
 	// Maintain state of what pods on each node
 	// Cached state from SharedLister does not hold system wide info of pods
 	// scheduled by other schedulers
@@ -49,8 +51,6 @@ var _ framework.ScorePlugin = &SySched{}
 // Name is the name of the plugin used in Registry and configurations.
 const Name = "SySched"
 
-// SPO annotation string
-const SPO_ANNOTATION = "seccomp.security.alpha.kubernetes.io"
 
 func remove(s []*v1.Pod, i int) []*v1.Pod {
 	if len(s) == 0 {
@@ -92,14 +92,19 @@ func (sc *SySched) readSPOProfileCR(name string, namespace string) (sets.Set[str
 		return syscalls, nil
 	}
 
-	// extract a seccomp SPO crd using namespace and crd name
-	profile, err := sc.clientSet.Profiles().Get(name, namespace, metav1.GetOptions{})
+	// extract a seccomp SPO profile CR using namespace and cr name
+	seccompProfile := &v1beta1.SeccompProfile{}
+
+	err := sc.client.Get(context.TODO(), client.ObjectKey{
+		Namespace: namespace,
+		Name:      name,
+	}, seccompProfile)
 
 	if err != nil {
 		return syscalls, err
 	}
 
-	syscallCategories := profile.Spec.Syscalls
+	syscallCategories := seccompProfile.Spec.Syscalls
 
 	// need to merge the syscalls in the syscall categories
 	// from multiple relevant actions, e.g., allow, log, notify
@@ -124,6 +129,7 @@ func (sc *SySched) getSyscalls(pod *v1.Pod) sets.Set[string] {
 
 	// read the seccomp profile from the security context of a pod
 	podSC := pod.Spec.SecurityContext
+
 	if podSC != nil && podSC.SeccompProfile != nil && podSC.SeccompProfile.Type == "Localhost" {
 		if podSC.SeccompProfile.LocalhostProfile != nil {
 			profilePath := *podSC.SeccompProfile.LocalhostProfile
@@ -160,32 +166,6 @@ func (sc *SySched) getSyscalls(pod *v1.Pod) sets.Set[string] {
 						r = r.Union(syscalls)
 					}
 				}
-			}
-		}
-	}
-
-	// SPO seccomp profiles are sometimes automatically annotated to a pod
-	if pod.ObjectMeta.Annotations != nil {
-		// there could be multiple SPO seccomp profile annotations for a pod
-		// merge all profiles to obtain the syscal set for a pod
-		for k, v := range pod.ObjectMeta.Annotations {
-			// looks for annotation related to the seccomp
-			if strings.Contains(k, SPO_ANNOTATION) {
-				ns, name := parseNameNS(v)
-
-				if len(ns) > 0 && len(name) > 0 {
-					syscalls, err := sc.readSPOProfileCR(name, ns)
-
-					if err != nil {
-						klog.ErrorS(err, "Failed to read syscall CR by parsing pod annotation")
-						continue
-					}
-
-					if len(syscalls) > 0 {
-						r = r.Union(syscalls)
-					}
-				}
-				break
 			}
 		}
 	}
@@ -413,14 +393,20 @@ func New(obj runtime.Object, handle framework.Handle) (framework.Plugin, error) 
 	sc.DefaultProfileNamespace = args.DefaultProfileNamespace
 	sc.DefaultProfileName = args.DefaultProfileName
 
-	v1beta1.AddToScheme(scheme.Scheme)
 
-	clientSet, err := v1alpha1.NewForConfig(handle.KubeConfig())
+	scheme := runtime.NewScheme()
+	_ = clientscheme.AddToScheme(scheme)
+	_ = v1.AddToScheme(scheme)
+	_ = v1alpha1.AddToScheme(scheme)
+
+	v1beta1.AddToScheme(scheme)
+
+	client, err := client.New(handle.KubeConfig(), client.Options{Scheme: scheme})
 	if err != nil {
 		return nil, err
 	}
 
-	sc.clientSet = clientSet
+	sc.client = client
 
 	podInformer := handle.SharedInformerFactory().Core().V1().Pods()
 

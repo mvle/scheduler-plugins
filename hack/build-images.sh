@@ -23,7 +23,8 @@ SCRIPT_ROOT=$(realpath $(dirname "${BASH_SOURCE[@]}")/..)
 SCHEDULER_DIR="${SCRIPT_ROOT}"/build/scheduler
 CONTROLLER_DIR="${SCRIPT_ROOT}"/build/controller
 
-REGISTRY=${REGISTRY:-"localhost:5000/scheduler-plugins"}
+#REGISTRY=${REGISTRY:-"localhost:5000/scheduler-plugins"}
+REGISTRY=${REGISTRY:-"sched4sec.sl.res.ibm.com:5000/salman/scheduler-plugins"}
 IMAGE=${IMAGE:-"kube-scheduler:latest"}
 CONTROLLER_IMAGE=${CONTROLLER_IMAGE:-"controller:latest"}
 
