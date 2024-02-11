@@ -51,6 +51,8 @@ var _ framework.ScorePlugin = &SySched{}
 // Name is the name of the plugin used in Registry and configurations.
 const Name = "SySched"
 
+// SPO annotation string
+const SPO_ANNOTATION = "seccomp.security.alpha.kubernetes.io"
 
 func remove(s []*v1.Pod, i int) []*v1.Pod {
 	if len(s) == 0 {
@@ -166,6 +168,32 @@ func (sc *SySched) getSyscalls(pod *v1.Pod) sets.Set[string] {
 						r = r.Union(syscalls)
 					}
 				}
+			}
+		}
+	}
+
+	// SPO seccomp profiles are sometimes automatically annotated to a pod
+	if pod.ObjectMeta.Annotations != nil {
+		// there could be multiple SPO seccomp profile annotations for a pod
+		// merge all profiles to obtain the syscal set for a pod
+		for k, v := range pod.ObjectMeta.Annotations {
+			// looks for annotation related to the seccomp
+			if strings.Contains(k, SPO_ANNOTATION) {
+				ns, name := parseNameNS(v)
+
+				if len(ns) > 0 && len(name) > 0 {
+					syscalls, err := sc.readSPOProfileCR(name, ns)
+
+					if err != nil {
+						klog.ErrorS(err, "Failed to read syscall CR by parsing pod annotation")
+						continue
+					}
+
+					if len(syscalls) > 0 {
+						r = r.Union(syscalls)
+					}
+				}
+				break
 			}
 		}
 	}
