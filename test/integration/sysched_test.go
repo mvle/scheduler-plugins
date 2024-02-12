@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Kubernetes Authors.
+Copyright 2024 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,18 +27,19 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
+	clientscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/kubernetes/pkg/scheduler"
 	schedapi "k8s.io/kubernetes/pkg/scheduler/apis/config"
 	fwkruntime "k8s.io/kubernetes/pkg/scheduler/framework/runtime"
 	st "k8s.io/kubernetes/pkg/scheduler/testing"
 	imageutils "k8s.io/kubernetes/test/utils/image"
+	"k8s.io/apimachinery/pkg/runtime"
 	spo "sigs.k8s.io/security-profiles-operator/api/seccompprofile/v1beta1"
-
 	schedconfig "sigs.k8s.io/scheduler-plugins/apis/config"
 	"sigs.k8s.io/scheduler-plugins/pkg/sysched"
-	spoclient "sigs.k8s.io/scheduler-plugins/pkg/sysched/clientset/v1alpha1"
+	"sigs.k8s.io/scheduler-plugins/apis/scheduling/v1alpha1"
 	"sigs.k8s.io/scheduler-plugins/test/util"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -123,45 +124,22 @@ var (
 	}
 )
 
-func SPOCreate(client *spoclient.SPOV1Alpha1Client, profile *spo.SeccompProfile, opts metav1.CreateOptions) (*spo.SeccompProfile, error) {
-	result := spo.SeccompProfile{}
-	err := client.RestClient.
-		Post().
-		Namespace("default").
-		Resource("seccompprofiles").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(profile).
-		Do(context.TODO()).
-		Into(&result)
-
-	return &result, err
-}
-
-func SPOGet(client *spoclient.SPOV1Alpha1Client, name string, ns string, opts metav1.GetOptions) (*spo.SeccompProfile, error) {
-	result := spo.SeccompProfile{}
-	err := client.RestClient.
-		Get().
-		Namespace("default").
-		Resource("seccompprofiles").
-		Name(name).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Do(context.TODO()).
-		Into(&result)
-
-	return &result, err
-}
-
 func TestSyschedPlugin(t *testing.T) {
 	testCtx := &testContext{}
 	testCtx.Ctx, testCtx.CancelFn = context.WithCancel(context.Background())
 
 	cs := kubernetes.NewForConfigOrDie(globalKubeConfig)
 
-	spo.AddToScheme(scheme.Scheme)
-	extClient, err := spoclient.NewForConfig(globalKubeConfig)
-	if err != nil {
-		t.Fatal(err)
-	}
+        scheme := runtime.NewScheme()
+        _ = clientscheme.AddToScheme(scheme)
+        _ = v1.AddToScheme(scheme)
+        _ = v1alpha1.AddToScheme(scheme)
+        _ = spo.AddToScheme(scheme)
+
+        extClient, err := client.New(globalKubeConfig, client.Options{Scheme: scheme})
+        if err != nil {
+                t.Fatal(err)
+        }
 	testCtx.ClientSet = cs
 	testCtx.KubeConfig = globalKubeConfig
 
@@ -183,7 +161,7 @@ func TestSyschedPlugin(t *testing.T) {
 
 	// Create the Seccomp Profile CRs
 	for _, spocr := range []*spo.SeccompProfile{&fullseccompSPOCR, &badSPOCR, &good1SPOCR, &good2SPOCR} {
-		_, err = SPOCreate(extClient, spocr, metav1.CreateOptions{})
+		err := extClient.Create(testCtx.Ctx, spocr)
 		if err != nil {
 			t.Fatal(err)
 		}

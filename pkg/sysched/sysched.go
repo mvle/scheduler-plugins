@@ -218,14 +218,14 @@ func (sc *SySched) Name() string {
 	return Name
 }
 
-// TODO: add weight for critical/cve syscalls
-// Currently, this function does not change score as the weight is set to 1, and
-// no critical syscalls are given as input
 func (sc *SySched) calcScore(syscalls sets.Set[string]) int {
-	tot_crit := 0
-
+	// Currently, score is not adjusted based on critical/cve syscalls.
 	// NOTE: weight W is hardcoded for now
+	// TODO: add critical/cve syscalls
+	// TODO: adjust weight W for critical/cve syscalls
+	tot_crit := 0
 	W := 1
+
 	score := syscalls.Len() - tot_crit
 	score = score + W*tot_crit
 	klog.V(10).InfoS("Score: ", "score", score, "tot_crit", tot_crit)

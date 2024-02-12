@@ -1,33 +1,27 @@
 package sysched
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"io/ioutil"
-	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	informers "k8s.io/client-go/informers"
 	clientsetfake "k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/kubernetes/scheme"
+	clientscheme "k8s.io/client-go/kubernetes/scheme"
 	restclient "k8s.io/client-go/rest"
-	restfake "k8s.io/client-go/rest/fake"
 	"k8s.io/kubernetes/pkg/scheduler/framework"
 	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/defaultbinder"
 	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/queuesort"
 	frameworkruntime "k8s.io/kubernetes/pkg/scheduler/framework/runtime"
 	st "k8s.io/kubernetes/pkg/scheduler/testing"
 	"sigs.k8s.io/security-profiles-operator/api/seccompprofile/v1beta1"
-
 	pluginconfig "sigs.k8s.io/scheduler-plugins/apis/config"
-	v1alpha1 "sigs.k8s.io/scheduler-plugins/pkg/sysched/clientset/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/scheduler-plugins/apis/scheduling/v1alpha1"
 )
 
 var (
@@ -91,44 +85,11 @@ var (
 		},
 	}
 
-	groupVersion = &schema.GroupVersion{Group: "security-profiles-operator.x-k8s.io",
-		Version: "v1beta1"}
-	aPIPath              = "/apis"
-	negotiatedSerializer = scheme.Codecs.WithoutConversion()
-
-	restclientSPO = restfake.RESTClient{NegotiatedSerializer: negotiatedSerializer,
-		GroupVersion: *groupVersion, VersionedAPIPath: aPIPath, Client: httpclient}
-	spoclient = v1alpha1.SPOV1Alpha1Client{RestClient: &restclientSPO}
-
-	// fake SPO Get return
-	httpclient = restfake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
-		//fmt.Printf(req.URL.String())
-		podname := strings.Split(req.URL.String(), "/")[len(strings.Split(req.URL.String(), "/"))-1]
-		//z-seccomp
-		body, _ := json.Marshal(spoResponse)
-		if podname == "x-seccomp" {
-			body, _ = json.Marshal(spoResponse1)
-		} else if podname == "full-seccomp" {
-			body, _ = json.Marshal(spoResponseFull)
-		}
-
-		return &http.Response{Body: ioutil.NopCloser(bytes.NewBuffer(body)), StatusCode: 200}, nil
-	})
-
 	registeredPlugins = []st.RegisterPluginFunc{
 		st.RegisterQueueSortPlugin(queuesort.Name, queuesort.New),
 		st.RegisterBindPlugin(defaultbinder.Name, defaultbinder.New),
 	}
 )
-
-/*func contains(s []string, str string) bool {
-	for _, v := range s {
-		if v == str {
-			return true
-		}
-	}
-	return false
-}*/
 
 func TestRemove(t *testing.T) {
 	tests := []struct {
@@ -209,8 +170,6 @@ func TestParseNameNS(t *testing.T) {
 }
 
 func mockSysched() (*SySched, error) {
-	v1beta1.AddToScheme(scheme.Scheme)
-
 	//fake out the framework handle
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -219,8 +178,25 @@ func mockSysched() (*SySched, error) {
 	if err != nil {
 		return nil, err
 	}
+	scheme := runtime.NewScheme()
+        if err := v1.AddToScheme(scheme); err != nil {
+                return nil, err
+        }
+        if err := v1alpha1.AddToScheme(scheme); err != nil {
+                return nil, err
+        }
+	if err := v1beta1.AddToScheme(scheme); err != nil {
+		return nil, err
+	}
+	if err := clientscheme.AddToScheme(scheme); err != nil {
+		return nil, err
+	}
 
-	sys := SySched{handle: fr, clientSet: &spoclient}
+	objs := []runtime.Object{&spoResponse, &spoResponse1, &spoResponseFull}
+	client := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build()
+
+	sys := SySched{handle: fr}
+	sys.client = client
 	sys.HostToPods = make(map[string][]*v1.Pod)
 	sys.HostSyscalls = make(map[string]sets.Set[string])
 	sys.ExSAvg = 0
@@ -247,7 +223,7 @@ func TestReadSPOProfileCR(t *testing.T) {
 		{
 			name:        "Valid CR path",
 			ns:          "default",
-			profilename: "z-seccomp.json",
+			profilename: "z-seccomp",
 			expected:    spoResponse.Spec.Syscalls[0].Names,
 		},
 	}
@@ -258,7 +234,7 @@ func TestReadSPOProfileCR(t *testing.T) {
 			syscalls, err := sys.readSPOProfileCR(tt.profilename, tt.ns)
 			assert.Nil(t, err)
 			assert.NotNil(t, syscalls)
-			assert.EqualValues(t, len(syscalls), len(tt.expected))
+			assert.EqualValues(t, len(tt.expected), len(syscalls))
 		})
 	}
 }
@@ -334,7 +310,7 @@ func TestGetSyscalls(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			syscalls := sys.getSyscalls(tt.pod)
 			assert.NotNil(t, syscalls)
-			assert.EqualValues(t, syscalls.Len(), tt.expected)
+			assert.EqualValues(t, tt.expected, syscalls.Len())
 		})
 	}
 }
@@ -355,14 +331,12 @@ func TestCalcScore(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			score := sys.calcScore(tt.syscalls)
-			assert.EqualValues(t, score, tt.expected)
+			assert.EqualValues(t, tt.expected, score)
 		})
 	}
 }
 
 func TestScore(t *testing.T) {
-	v1beta1.AddToScheme(scheme.Scheme)
-
 	//create nodes and pods
 	node := st.MakeNode()
 	node.Name("test")
@@ -380,11 +354,30 @@ func TestScore(t *testing.T) {
 		t.Error(err)
 	}
 
-	sys := SySched{handle: fr, clientSet: &spoclient}
+        scheme := runtime.NewScheme()
+        if err := v1.AddToScheme(scheme); err != nil {
+                t.Error(err)
+        }
+        if err := v1alpha1.AddToScheme(scheme); err != nil {
+                t.Error(err)
+        }
+        if err := v1beta1.AddToScheme(scheme); err != nil {
+                t.Error(err)
+        }
+        if err := clientscheme.AddToScheme(scheme); err != nil {
+                t.Error(err)
+        }
+
+        objs := []runtime.Object{&spoResponse, &spoResponse1, &spoResponseFull}
+        client := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build()
+
+	sys := SySched{handle: fr}
+	sys.client = client
 	sys.HostToPods = make(map[string][]*v1.Pod)
 	sys.HostSyscalls = make(map[string]sets.Set[string])
 	sys.ExSAvg = 0
 	sys.ExSAvgCount = 0
+
 	sys.addPod(pod)
 
 	tests := []struct {
@@ -408,7 +401,7 @@ func TestScore(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			score, _ := sys.Score(context.Background(), nil, tt.pod, "test")
-			assert.EqualValues(t, score, tt.expected)
+			assert.EqualValues(t, tt.expected, score)
 		})
 	}
 }
@@ -442,15 +435,13 @@ func TestNormalizeScore(t *testing.T) {
 			ret := sys.NormalizeScore(context.TODO(), nil, pod, tt.nodescores)
 			assert.Nil(t, ret)
 			for i := range tt.nodescores {
-				assert.EqualValues(t, tt.nodescores[i].Score, tt.expected[i])
+				assert.EqualValues(t, tt.expected[i], tt.nodescores[i].Score)
 			}
 		})
 	}
 }
 
 func TestGetHostSyscalls(t *testing.T) {
-	v1beta1.AddToScheme(scheme.Scheme)
-
 	tests := []struct {
 		name     string
 		pods     []*v1.Pod
@@ -485,19 +476,7 @@ func TestGetHostSyscalls(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			//fake out the framework handle
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			fr, err := st.NewFramework(ctx, registeredPlugins, Name,
-				frameworkruntime.WithClientSet(clientsetfake.NewSimpleClientset()))
-			if err != nil {
-				t.Error(err)
-			}
-
-			sys := SySched{handle: fr, clientSet: &spoclient}
-			sys.HostToPods = make(map[string][]*v1.Pod)
-			sys.HostSyscalls = make(map[string]sets.Set[string])
-			sys.ExSAvg = 0
+			sys, _ := mockSysched()
 			sys.ExSAvgCount = 0
 
 			for i := range tt.pods {
@@ -505,13 +484,13 @@ func TestGetHostSyscalls(t *testing.T) {
 			}
 
 			cnt, _ := sys.getHostSyscalls(tt.nodeName)
-			assert.EqualValues(t, cnt, tt.expected)
+			assert.EqualValues(t, tt.expected, cnt)
 		})
 	}
 }
 
 func TestUpdateHostSyscalls(t *testing.T) {
-	v1beta1.AddToScheme(scheme.Scheme)
+	v1beta1.AddToScheme(clientscheme.Scheme)
 
 	tests := []struct {
 		name     string
@@ -553,8 +532,25 @@ func TestUpdateHostSyscalls(t *testing.T) {
 				t.Error(err)
 			}
 
-			sys := SySched{handle: fr, clientSet: &spoclient}
+		        scheme := runtime.NewScheme()
+		        if err := v1.AddToScheme(scheme); err != nil {
+		                t.Error(err)
+		        }
+		        if err := v1alpha1.AddToScheme(scheme); err != nil {
+		                t.Error(err)
+		        }
+		        if err := v1beta1.AddToScheme(scheme); err != nil {
+		                t.Error(err)
+		        }
+		        if err := clientscheme.AddToScheme(scheme); err != nil {
+		                t.Error(err)
+		        }
 
+		        objs := []runtime.Object{&spoResponse, &spoResponse1, &spoResponseFull}
+		        client := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build()
+
+			sys := SySched{handle: fr}
+			sys.client = client
 			sys.HostToPods = make(map[string][]*v1.Pod)
 			sys.HostSyscalls = make(map[string]sets.Set[string])
 			sys.ExSAvg = 0
@@ -568,7 +564,7 @@ func TestUpdateHostSyscalls(t *testing.T) {
 				sys.updateHostSyscalls(tt.newPods[i])
 			}
 			sc, _ := sys.getHostSyscalls("test")
-			assert.EqualValues(t, sc, tt.expected)
+			assert.EqualValues(t, tt.expected, sc)
 		})
 	}
 }
@@ -597,9 +593,9 @@ func TestAddPod(t *testing.T) {
 				sys.addPod(tt.pods[i])
 			}
 			for i := range sys.HostToPods["test"] {
-				assert.EqualValues(t, sys.HostToPods["test"][i], tt.pods[i])
+				assert.EqualValues(t, tt.pods[i], sys.HostToPods["test"][i])
 			}
-			assert.EqualValues(t, len(sys.HostSyscalls["test"]), tt.expected)
+			assert.EqualValues(t, tt.expected, len(sys.HostSyscalls["test"]))
 		})
 	}
 }
@@ -626,7 +622,7 @@ func TestRecomputeHostSyscalls(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			syscalls := sys.recomputeHostSyscalls(tt.pods)
-			assert.EqualValues(t, len(syscalls), tt.expected)
+			assert.EqualValues(t, tt.expected, len(syscalls))
 		})
 	}
 }
@@ -665,8 +661,42 @@ func TestRemovePod(t *testing.T) {
 				sys.removePod(tt.removePods[i])
 			}
 
-			assert.EqualValues(t, len(sys.HostToPods["test"]), tt.expectedPodNum)
-			assert.EqualValues(t, len(sys.HostSyscalls["test"]), tt.expected)
+			assert.EqualValues(t, tt.expectedPodNum, len(sys.HostToPods["test"]))
+			assert.EqualValues(t, tt.expected, len(sys.HostSyscalls["test"]))
+		})
+	}
+}
+
+func TestPodAdded(t *testing.T) {
+	sys, _ := mockSysched()
+	tests := []struct {
+		name           string
+		basePods       []*v1.Pod
+		updatedPods    []*v1.Pod
+		expectedPodNum int
+		expected       int
+	}{
+		{
+			name: "Update 1 pod",
+			basePods: []*v1.Pod{
+				st.MakePod().Name("pod1").Annotation("seccomp.security.alpha.kubernetes.io",
+					"localhost/operator/default/z-seccomp.json").Phase(v1.PodRunning).Node("test").Obj(),
+				st.MakePod().Name("pod2").Annotation("seccomp.security.alpha.kubernetes.io",
+					"localhost/operator/default/x-seccomp.json").Phase(v1.PodRunning).Node("test").Obj(),
+			},
+			expectedPodNum: 2,
+			expected:       sets.New[string](spoResponse.Spec.Syscalls[0].Names...).Union(sets.New[string](spoResponse1.Spec.Syscalls[0].Names...)).Len(),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for i := range tt.basePods {
+				sys.podAdded(tt.basePods[i])
+			}
+
+			assert.EqualValues(t, tt.expectedPodNum, len(sys.HostToPods["test"]))
+			assert.EqualValues(t, tt.expected, len(sys.HostSyscalls["test"]))
 		})
 	}
 }
@@ -705,8 +735,8 @@ func TestPodUpdated(t *testing.T) {
 				sys.podUpdated(tt.updatedPods[i], nil)
 			}
 
-			assert.EqualValues(t, len(sys.HostToPods["test"]), tt.expectedPodNum)
-			assert.EqualValues(t, len(sys.HostSyscalls["test"]), tt.expected)
+			assert.EqualValues(t, tt.expectedPodNum, len(sys.HostToPods["test"]))
+			assert.EqualValues(t, tt.expected, len(sys.HostSyscalls["test"]))
 		})
 	}
 }
@@ -745,8 +775,8 @@ func TestPodDeleted(t *testing.T) {
 				sys.podDeleted(tt.deletedPods[i])
 			}
 
-			assert.EqualValues(t, len(sys.HostToPods["test"]), tt.expectedPodNum)
-			assert.EqualValues(t, len(sys.HostSyscalls["test"]), tt.expected)
+			assert.EqualValues(t, tt.expectedPodNum, len(sys.HostToPods["test"]))
+			assert.EqualValues(t, tt.expected, len(sys.HostSyscalls["test"]))
 		})
 	}
 }
